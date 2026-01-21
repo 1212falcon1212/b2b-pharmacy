@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust all proxies (for reverse proxy / load balancer)
+        $middleware->trustProxies(at: '*');
+
         // API rate limiting
         $middleware->api(prepend: [
             \Illuminate\Routing\Middleware\ThrottleRequests::class . ':api',
