@@ -282,7 +282,7 @@ export default function AccountDashboardPage() {
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className="font-bold text-slate-900 dark:text-white">
-                                                {formatPrice(order.total)}
+                                                {formatPrice(order.total_amount)}
                                             </span>
                                             {getStatusBadge(order.status)}
                                         </div>
