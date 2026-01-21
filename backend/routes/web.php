@@ -8,8 +8,8 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// GitHub Webhook for Auto-Deploy
-Route::post('/deploy/webhook', function (Request $request) {
+// GitHub Webhook for Auto-Deploy (via /api/deploy/webhook)
+Route::post('/api/deploy/webhook', function (Request $request) {
     $secret = 'b2b-idepo-webhook-secret-2026';
     $signature = $request->header('X-Hub-Signature-256');
     $payload = $request->getContent();
