@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { api, authApi, RegisterData } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,9 @@ export default function RegisterPage() {
     if (response.data?.valid) {
       if (response.data.already_registered) {
         setError('Bu GLN kodu zaten kayitli. Giris yapabilirsiniz.');
+        toast.error('GLN zaten kayıtlı', {
+          description: 'Bu GLN kodu ile zaten bir hesap mevcut.',
+        });
       } else {
         setGlnVerified(true);
         setPharmacyInfo({
@@ -81,10 +85,17 @@ export default function RegisterPage() {
           city: response.data.city,
           address: response.data.address,
         });
+        toast.success('GLN doğrulandı!', {
+          description: response.data.pharmacy_name,
+        });
         goToStep(2);
       }
     } else {
-      setError(response.data?.message || response.error || 'GLN kodu dogrulanamadi');
+      const errorMsg = response.data?.message || response.error || 'GLN kodu dogrulanamadi';
+      setError(errorMsg);
+      toast.error('GLN doğrulanamadı', {
+        description: errorMsg,
+      });
     }
 
     setIsLoading(false);
@@ -150,9 +161,16 @@ export default function RegisterPage() {
     if (response.data) {
       api.setToken(response.data.token);
       setUser(response.data.user);
+      toast.success('Kayıt başarılı!', {
+        description: 'Hesabınız oluşturuldu, yönlendiriliyorsunuz...',
+      });
       router.push('/documents');
     } else {
-      setError(response.error || 'Kayit basarisiz');
+      const errorMsg = response.error || 'Kayit basarisiz';
+      setError(errorMsg);
+      toast.error('Kayıt başarısız', {
+        description: errorMsg,
+      });
     }
 
     setIsLoading(false);

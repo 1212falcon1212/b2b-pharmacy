@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,9 +28,16 @@ export default function LoginPage() {
     const result = await login(email, password);
 
     if (result.success) {
+      toast.success('Giriş başarılı!', {
+        description: 'Yönlendiriliyorsunuz...',
+      });
       router.push('/market');
     } else {
-      setError(result.error || 'Giris basarisiz');
+      const errorMessage = result.error || 'Giriş başarısız';
+      setError(errorMessage);
+      toast.error('Giriş başarısız', {
+        description: errorMessage,
+      });
     }
 
     setIsLoading(false);

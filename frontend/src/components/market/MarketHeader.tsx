@@ -30,7 +30,11 @@ import {
     Tablets,
     Phone,
     MapPin,
-    Clock
+    Clock,
+    Package,
+    Wallet,
+    History,
+    Settings
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -262,20 +266,29 @@ export function MarketHeader() {
                                         </div>
                                         <SheetClose asChild>
                                             <Link
-                                                href="/seller/dashboard"
+                                                href="/hesabim"
                                                 className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
                                             >
-                                                <Store className="w-5 h-5 text-[#0284c7]" />
-                                                <span className="text-sm font-medium text-slate-700">Satici Paneli</span>
+                                                <User className="w-5 h-5 text-[#059669]" />
+                                                <span className="text-sm font-medium text-slate-700">Hesabim</span>
                                             </Link>
                                         </SheetClose>
                                         <SheetClose asChild>
                                             <Link
-                                                href="/account/dashboard"
+                                                href="/hesabim?tab=satis-panelim"
                                                 className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
                                             >
-                                                <LayoutDashboard className="w-5 h-5 text-[#059669]" />
-                                                <span className="text-sm font-medium text-slate-700">Hesabim</span>
+                                                <Store className="w-5 h-5 text-[#0284c7]" />
+                                                <span className="text-sm font-medium text-slate-700">Satis Panelim</span>
+                                            </Link>
+                                        </SheetClose>
+                                        <SheetClose asChild>
+                                            <Link
+                                                href="/hesabim?tab=siparislerim"
+                                                className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
+                                            >
+                                                <ShoppingBag className="w-5 h-5 text-orange-500" />
+                                                <span className="text-sm font-medium text-slate-700">Siparislerim</span>
                                             </Link>
                                         </SheetClose>
                                     </div>
@@ -363,17 +376,6 @@ export function MarketHeader() {
 
                     {/* Right Actions */}
                     <div className="flex items-center gap-2 lg:gap-3 shrink-0">
-                        {/* Seller Panel Button - Desktop */}
-                        <Button
-                            variant="ghost"
-                            className="hidden xl:flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-[#0284c7] hover:bg-[#0284c7]/5 dark:hover:bg-[#0284c7]/10 px-3"
-                            onClick={() => router.push("/seller/dashboard")}
-                        >
-                            <Store className="w-5 h-5" />
-                            <span className="text-sm font-medium">Satici Paneli</span>
-                        </Button>
-
-                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-600 hidden xl:block" />
 
                         {/* Theme Toggle */}
                         <ThemeToggle />
@@ -422,25 +424,53 @@ export function MarketHeader() {
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator className="bg-slate-100" />
                                     <DropdownMenuItem
-                                        onClick={() => router.push('/account/dashboard')}
+                                        onClick={() => router.push('/hesabim?tab=satis-panelim')}
                                         className="focus:bg-[#059669]/5 focus:text-[#059669] cursor-pointer py-2.5 rounded-lg"
                                     >
-                                        <LayoutDashboard className="mr-3 h-4 w-4 text-[#059669]" />
-                                        <span>Alici Paneli</span>
+                                        <Store className="mr-3 h-4 w-4 text-[#059669]" />
+                                        <span>Satis Panelim</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                        onClick={() => router.push('/account/orders')}
+                                        onClick={() => router.push('/hesabim?tab=ilanlarim')}
                                         className="focus:bg-[#0284c7]/5 focus:text-[#0284c7] cursor-pointer py-2.5 rounded-lg"
                                     >
-                                        <ShoppingBag className="mr-3 h-4 w-4 text-[#0284c7]" />
+                                        <Package className="mr-3 h-4 w-4 text-[#0284c7]" />
+                                        <span>Ilanlarim</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => router.push('/hesabim?tab=siparislerim')}
+                                        className="focus:bg-orange-50 focus:text-orange-600 cursor-pointer py-2.5 rounded-lg"
+                                    >
+                                        <ShoppingBag className="mr-3 h-4 w-4 text-orange-500" />
                                         <span>Siparislerim</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                        onClick={() => router.push('/seller/dashboard')}
+                                        onClick={() => router.push('/hesabim?tab=begendiklerim')}
+                                        className="focus:bg-pink-50 focus:text-pink-600 cursor-pointer py-2.5 rounded-lg"
+                                    >
+                                        <Heart className="mr-3 h-4 w-4 text-pink-500" />
+                                        <span>Begendiklerim</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => router.push('/hesabim?tab=cuzdanim')}
                                         className="focus:bg-purple-50 focus:text-purple-600 cursor-pointer py-2.5 rounded-lg"
                                     >
-                                        <Store className="mr-3 h-4 w-4 text-purple-500" />
-                                        <span>Satici Paneli</span>
+                                        <Wallet className="mr-3 h-4 w-4 text-purple-500" />
+                                        <span>Cuzdanim</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => router.push('/hesabim?tab=hesap-hareketlerim')}
+                                        className="focus:bg-cyan-50 focus:text-cyan-600 cursor-pointer py-2.5 rounded-lg"
+                                    >
+                                        <History className="mr-3 h-4 w-4 text-cyan-500" />
+                                        <span>Hesap Hareketlerim</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => router.push('/hesabim?tab=ayarlar')}
+                                        className="focus:bg-slate-100 focus:text-slate-700 cursor-pointer py-2.5 rounded-lg"
+                                    >
+                                        <Settings className="mr-3 h-4 w-4 text-slate-500" />
+                                        <span>Ayarlar</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator className="bg-slate-100" />
                                     <DropdownMenuItem
@@ -448,7 +478,7 @@ export function MarketHeader() {
                                         className="text-red-500 focus:text-red-600 focus:bg-red-50 cursor-pointer py-2.5 rounded-lg"
                                     >
                                         <LogOut className="mr-3 h-4 w-4" />
-                                        <span>Cikis Yap</span>
+                                        <span>Guvenli Cikis Yap</span>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>

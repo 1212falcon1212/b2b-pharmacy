@@ -239,40 +239,44 @@ function BrandCarousel({ brands }: { brands: Brand[] }) {
     );
 }
 
-// 4-Banner Grid Component
+// 4-Banner Grid Component - Colorful Version
 function BannerGrid() {
     const banners = [
         {
             title: 'Vitaminler',
             subtitle: 'Saglikli yasam icin',
-            icon: <Pill className="w-6 h-6" />,
-            gradient: 'from-orange-500 to-amber-500',
-            shadowColor: 'shadow-orange-500/20',
-            href: '/market/category/vitaminler'
+            icon: <Pill className="w-6 h-6 text-white" />,
+            gradient: 'from-orange-500 via-amber-500 to-yellow-500',
+            shadowColor: 'shadow-orange-500/30',
+            href: '/market/category/vitaminler',
+            pattern: 'radial-gradient(circle at 100% 0%, rgba(255,255,255,0.15) 0%, transparent 50%)'
         },
         {
             title: 'Cilt Bakimi',
             subtitle: 'Cildinize ozen gosterin',
-            icon: <Heart className="w-6 h-6" />,
-            gradient: 'from-pink-500 to-rose-500',
-            shadowColor: 'shadow-pink-500/20',
-            href: '/market/category/cilt-bakimi'
+            icon: <Heart className="w-6 h-6 text-white" />,
+            gradient: 'from-pink-500 via-rose-500 to-red-500',
+            shadowColor: 'shadow-pink-500/30',
+            href: '/market/category/cilt-bakimi',
+            pattern: 'radial-gradient(circle at 0% 100%, rgba(255,255,255,0.15) 0%, transparent 50%)'
         },
         {
             title: 'Anne Bebek',
             subtitle: 'Bebeginiz icin en iyisi',
-            icon: <Gift className="w-6 h-6" />,
-            gradient: 'from-blue-500 to-cyan-500',
-            shadowColor: 'shadow-blue-500/20',
-            href: '/market/category/anne-bebek'
+            icon: <Gift className="w-6 h-6 text-white" />,
+            gradient: 'from-blue-500 via-indigo-500 to-violet-500',
+            shadowColor: 'shadow-blue-500/30',
+            href: '/market/category/anne-bebek',
+            pattern: 'radial-gradient(circle at 100% 100%, rgba(255,255,255,0.15) 0%, transparent 50%)'
         },
         {
             title: 'Sac Bakimi',
             subtitle: 'Guclu ve parlak saclar',
-            icon: <Sparkles className="w-6 h-6" />,
-            gradient: 'from-violet-500 to-purple-500',
-            shadowColor: 'shadow-violet-500/20',
-            href: '/market/category/sac-bakimi'
+            icon: <Sparkles className="w-6 h-6 text-white" />,
+            gradient: 'from-purple-500 via-violet-500 to-fuchsia-500',
+            shadowColor: 'shadow-purple-500/30',
+            href: '/market/category/sac-bakimi',
+            pattern: 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.15) 0%, transparent 50%)'
         }
     ];
 
@@ -286,16 +290,25 @@ function BannerGrid() {
                         className={cn(
                             "group relative overflow-hidden rounded-2xl p-6 md:p-8",
                             `bg-gradient-to-br ${banner.gradient}`,
-                            `shadow-lg ${banner.shadowColor} hover:shadow-xl transition-all duration-300`
+                            `shadow-lg ${banner.shadowColor} hover:shadow-xl hover:scale-[1.02] transition-all duration-300`
                         )}
                     >
                         {/* Background Pattern */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+                        <div className="absolute inset-0" style={{ backgroundImage: banner.pattern }} />
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+
+                        {/* Animated Dots Pattern */}
+                        <div className="absolute inset-0 opacity-20">
+                            <div className="absolute inset-0" style={{
+                                backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.4) 1px, transparent 0)`,
+                                backgroundSize: '20px 20px'
+                            }} />
+                        </div>
 
                         <div className="relative flex items-center justify-between">
                             <div>
-                                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-white/30 transition-all shadow-lg">
                                     {banner.icon}
                                 </div>
                                 <h3 className="text-lg md:text-xl font-bold text-white mb-1">
@@ -305,7 +318,7 @@ function BannerGrid() {
                                     {banner.subtitle}
                                 </p>
                             </div>
-                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-white/30 group-hover:scale-110 transition-all">
                                 <ArrowRight className="w-5 h-5 text-white group-hover:translate-x-0.5 transition-transform" />
                             </div>
                         </div>
@@ -322,7 +335,7 @@ function TrustSection() {
         <section className="py-12 mt-4">
             {/* Header */}
             <div className="text-center mb-10">
-                <span className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-sm font-semibold rounded-full mb-4">
+                <span className="inline-block px-4 py-1.5 bg-gradient-to-r from-violet-100 to-purple-100 text-purple-700 text-sm font-semibold rounded-full mb-4">
                     Guvenilir Tedarik Platformu
                 </span>
                 <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">
@@ -336,9 +349,9 @@ function TrustSection() {
 
             {/* Features Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-500/5 transition-all group">
-                    <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Shield className="w-7 h-7 text-emerald-600" />
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-orange-200 hover:shadow-lg hover:shadow-orange-500/10 transition-all group">
+                    <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-amber-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-orange-500/25">
+                        <Shield className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-slate-900 font-bold text-lg mb-2">TITCK Onayli</h3>
                     <p className="text-slate-500 text-sm leading-relaxed">
@@ -346,9 +359,9 @@ function TrustSection() {
                     </p>
                 </div>
 
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5 transition-all group">
-                    <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Truck className="w-7 h-7 text-blue-600" />
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/10 transition-all group">
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/25">
+                        <Truck className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-slate-900 font-bold text-lg mb-2">Hizli Teslimat</h3>
                     <p className="text-slate-500 text-sm leading-relaxed">
@@ -356,9 +369,9 @@ function TrustSection() {
                     </p>
                 </div>
 
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-500/5 transition-all group">
-                    <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Award className="w-7 h-7 text-amber-600" />
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10 transition-all group">
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-violet-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-purple-500/25">
+                        <Award className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-slate-900 font-bold text-lg mb-2">En Iyi Fiyatlar</h3>
                     <p className="text-slate-500 text-sm leading-relaxed">
@@ -366,9 +379,9 @@ function TrustSection() {
                     </p>
                 </div>
 
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/5 transition-all group">
-                    <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <BadgeCheck className="w-7 h-7 text-purple-600" />
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group">
+                    <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-500/25">
+                        <BadgeCheck className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-slate-900 font-bold text-lg mb-2">Guvenli Odeme</h3>
                     <p className="text-slate-500 text-sm leading-relaxed">
@@ -378,23 +391,29 @@ function TrustSection() {
             </div>
 
             {/* Stats Bar */}
-            <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 p-8">
+                <div className="absolute inset-0 opacity-20">
+                    <div className="absolute inset-0" style={{
+                        backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.3) 1px, transparent 0)`,
+                        backgroundSize: '24px 24px'
+                    }} />
+                </div>
+                <div className="relative grid grid-cols-2 md:grid-cols-4 gap-8">
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">5000+</div>
-                        <div className="text-slate-500 text-sm">Kayitli Eczane</div>
+                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">5000+</div>
+                        <div className="text-white/70 text-sm">Kayitli Eczane</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">50K+</div>
-                        <div className="text-slate-500 text-sm">Urun Cesidi</div>
+                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">50K+</div>
+                        <div className="text-white/70 text-sm">Urun Cesidi</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">500+</div>
-                        <div className="text-slate-500 text-sm">Aktif Tedarikci</div>
+                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">500+</div>
+                        <div className="text-white/70 text-sm">Aktif Tedarikci</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">%99</div>
-                        <div className="text-slate-500 text-sm">Musteri Memnuniyeti</div>
+                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">%99</div>
+                        <div className="text-white/70 text-sm">Musteri Memnuniyeti</div>
                     </div>
                 </div>
             </div>
