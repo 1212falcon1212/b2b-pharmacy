@@ -61,7 +61,8 @@ class ApiClient {
 
       if (!response.ok) {
         // 401 Unauthorized - Token expired or invalid
-        if (response.status === 401) {
+        // But NOT for login/register endpoints (they naturally return 401 for wrong credentials)
+        if (response.status === 401 && !endpoint.startsWith('/auth/login') && !endpoint.startsWith('/auth/register')) {
           this.handleUnauthorized();
         }
         return {
@@ -122,7 +123,7 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
-        // 401 Unauthorized - Token expired or invalid
+        // 401 Unauthorized - Token expired or invalid (but not for auth endpoints)
         if (response.status === 401) {
           this.handleUnauthorized();
         }

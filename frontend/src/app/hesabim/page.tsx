@@ -292,18 +292,18 @@ function SalesPanelContent({ subNav }: { subNav: string }) {
 function ListingsContent({ subNav }: { subNav: string }) {
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="relative">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:flex-none">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <Input placeholder="Ilan ara..." className="pl-9 w-64" />
+                        <Input placeholder="Ilan ara..." className="pl-9 w-full sm:w-64" />
                     </div>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" className="shrink-0">
                         <Filter className="w-4 h-4" />
                     </Button>
                 </div>
-                <Link href="/seller/products/new">
-                    <Button className="bg-emerald-600 hover:bg-emerald-700">
+                <Link href="/seller/products/new" className="w-full sm:w-auto">
+                    <Button className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto">
                         <Plus className="w-4 h-4 mr-2" />
                         Yeni Ilan Ekle
                     </Button>
@@ -349,12 +349,12 @@ function OrdersContent({ subNav, orders }: { subNav: string; orders: Order[] }) 
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-3">
-                <div className="relative flex-1 max-w-md">
+            <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <Input placeholder="Siparis no veya urun ara..." className="pl-9" />
+                    <Input placeholder="Siparis no veya urun ara..." className="pl-9 w-full" />
                 </div>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full sm:w-auto shrink-0">
                     <Calendar className="w-4 h-4 mr-2" />
                     Tarih Filtrele
                 </Button>
@@ -376,25 +376,25 @@ function OrdersContent({ subNav, orders }: { subNav: string; orders: Order[] }) 
                 <div className="space-y-3">
                     {filteredOrders.map((order) => (
                         <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 transition-colors">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                                    <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
                                         <Package className="w-6 h-6 text-slate-400" />
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <p className="font-semibold text-slate-900">Siparis #{order.id}</p>
                                         <p className="text-sm text-slate-500">
                                             {new Date(order.created_at).toLocaleDateString('tr-TR')}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 pl-16 sm:pl-0">
                                     {getStatusBadge(order.status)}
-                                    <span className="font-bold text-slate-900">{formatPrice(order.total_amount)}</span>
+                                    <span className="font-bold text-slate-900 whitespace-nowrap">{formatPrice(order.total_amount)}</span>
                                     <Link href={`/account/orders/${order.id}`}>
-                                        <Button variant="ghost" size="sm">
-                                            <Eye className="w-4 h-4 mr-1" />
-                                            Detay
+                                        <Button variant="ghost" size="sm" className="shrink-0">
+                                            <Eye className="w-4 h-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">Detay</span>
                                         </Button>
                                     </Link>
                                 </div>
@@ -547,7 +547,7 @@ function SettingsContent({ subNav, user }: { subNav: string; user: any }) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Telefon</label>
-                            <Input value={user?.phone || ''} placeholder="Telefon girilmemis" className="bg-slate-50" />
+                            <Input defaultValue={user?.phone || ''} placeholder="Telefon girilmemis" className="bg-slate-50" />
                         </div>
                     </div>
                     <div className="mt-6 pt-6 border-t border-slate-200">
@@ -770,7 +770,7 @@ function HesabimContent() {
 
                 {/* Main Tabs */}
                 <div className="bg-white rounded-t-2xl border border-b-0 border-slate-200">
-                    <div className="flex overflow-x-auto scrollbar-hide">
+                    <div className="flex overflow-x-auto scrollbar-hide no-scrollbar">
                         {TABS.map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
@@ -779,14 +779,15 @@ function HesabimContent() {
                                     key={tab.id}
                                     onClick={() => handleTabChange(tab.id)}
                                     className={cn(
-                                        "flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
+                                        "flex items-center gap-2 px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors shrink-0",
                                         isActive
                                             ? "border-emerald-600 text-emerald-600"
                                             : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
                                     )}
                                 >
                                     <Icon className="w-4 h-4" />
-                                    {tab.label}
+                                    <span className="hidden sm:inline">{tab.label}</span>
+                                    <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                                 </button>
                             );
                         })}

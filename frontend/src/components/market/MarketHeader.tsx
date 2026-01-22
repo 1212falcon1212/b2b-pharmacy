@@ -275,15 +275,6 @@ export function MarketHeader() {
                                         </SheetClose>
                                         <SheetClose asChild>
                                             <Link
-                                                href="/hesabim?tab=satis-panelim"
-                                                className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
-                                            >
-                                                <Store className="w-5 h-5 text-[#0284c7]" />
-                                                <span className="text-sm font-medium text-slate-700">Satis Panelim</span>
-                                            </Link>
-                                        </SheetClose>
-                                        <SheetClose asChild>
-                                            <Link
                                                 href="/hesabim?tab=siparislerim"
                                                 className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
                                             >
@@ -597,37 +588,6 @@ export function MarketHeader() {
                 </form>
             </div>
 
-            {/* Mobile Category Bar */}
-            <div className="lg:hidden bg-black px-4 py-2.5 overflow-x-auto no-scrollbar">
-                <div className="flex items-center gap-2">
-                    {categories.length === 0 ? (
-                        // Skeleton loading
-                        Array(5).fill(0).map((_, i) => (
-                            <div key={i} className="h-8 w-20 bg-white/10 rounded-full animate-pulse shrink-0" />
-                        ))
-                    ) : (
-                        categories.slice(0, 6).map((category) => (
-                            <Link
-                                key={category.id}
-                                href={`/market/category/${category.slug}`}
-                                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 active:bg-white/25 rounded-full text-sm font-medium text-white/90 whitespace-nowrap transition-all duration-200 shrink-0 border border-white/10 hover:border-white/20"
-                            >
-                                <span className="w-4 h-4 text-[#10b981]">{getCategoryIcon(category.slug)}</span>
-                                {category.name}
-                            </Link>
-                        ))
-                    )}
-                    {categories.length > 6 && (
-                        <Link
-                            href="/market/kategoriler"
-                            className="flex items-center gap-1.5 px-4 py-2 bg-[#059669] hover:bg-[#047857] active:bg-[#065f46] rounded-full text-sm font-semibold text-white whitespace-nowrap transition-all duration-200 shrink-0"
-                        >
-                            <span>Tumunu Gor</span>
-                            <ChevronRight className="w-4 h-4" />
-                        </Link>
-                    )}
-                </div>
-            </div>
         </header>
     );
 }

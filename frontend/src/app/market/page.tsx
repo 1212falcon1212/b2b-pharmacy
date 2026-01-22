@@ -329,6 +329,261 @@ function BannerGrid() {
     );
 }
 
+// Featured Sections Component (Sezon Öne Çıkanları, Haftanın Ürünleri, Son Satılanlar, Günün Fırsatı)
+function FeaturedSections() {
+    const [activeSeasonIndex, setActiveSeasonIndex] = useState(0);
+    const [activeWeekIndex, setActiveWeekIndex] = useState(0);
+
+    // Sample data - Sezonun Öne Çıkanları
+    const seasonHighlights = [
+        { id: 1, name: 'Sterimar Baby Burun Spreyi Blocked Nose Hipertonik Sprey 100 ml', price: 339.00, seller: 'eczanemag', image: '/images/products/placeholder.png' },
+        { id: 2, name: 'Bioderma Sensibio H2O 500 ml', price: 425.00, seller: 'dermokozmetik', image: '/images/products/placeholder.png' },
+        { id: 3, name: 'Avene Cicalfate+ Onarici Krem 100 ml', price: 520.00, seller: 'eczaneplus', image: '/images/products/placeholder.png' },
+    ];
+
+    // Sample data - Haftanın Ürünleri
+    const weekProducts = [
+        { id: 1, name: 'TTO Yuz Temizleme Kopugu 200 ml', price: 555.00, seller: 'declife', image: '/images/products/placeholder.png' },
+        { id: 2, name: 'La Roche-Posay Effaclar Duo 40 ml', price: 680.00, seller: 'kozmetikshop', image: '/images/products/placeholder.png' },
+        { id: 3, name: 'Vichy Mineral 89 Serum 50 ml', price: 890.00, seller: 'beautystore', image: '/images/products/placeholder.png' },
+    ];
+
+    // Sample data - Son Satılanlar
+    const recentlySold = [
+        { id: 1, name: 'Solgar Zinc Picolinate 15 mg 100 Kapsul', price: 649.99, stock: 2, image: '/images/products/placeholder.png' },
+        { id: 2, name: "Raw Material More Than Lugol's Solution %5 Iyot Damla 20 ml", price: 239.00, stock: 2, image: '/images/products/placeholder.png' },
+        { id: 3, name: 'Bruno Baby Serum Fizyolojik 5 ml x 20 Flakon', price: 206.57, stock: 500, image: '/images/products/placeholder.png' },
+        { id: 4, name: 'Aptamil Pronutra 1 Devam Sutu 900 gr 0-6 Ay', price: 847.00, stock: 67, image: '/images/products/placeholder.png' },
+    ];
+
+    // Sample data - Günün Fırsatı
+    const dealOfDay = {
+        id: 1,
+        name: 'Lierac Phytolastil Gel 200 ml',
+        price: 1399.92,
+        seller: 'Expanscience',
+        image: '/images/products/placeholder.png'
+    };
+
+    const nextSeason = () => setActiveSeasonIndex((prev) => (prev + 1) % seasonHighlights.length);
+    const prevSeason = () => setActiveSeasonIndex((prev) => (prev - 1 + seasonHighlights.length) % seasonHighlights.length);
+    const nextWeek = () => setActiveWeekIndex((prev) => (prev + 1) % weekProducts.length);
+    const prevWeek = () => setActiveWeekIndex((prev) => (prev - 1 + weekProducts.length) % weekProducts.length);
+
+    const formatPrice = (price: number) => {
+        const [whole, decimal] = price.toFixed(2).split('.');
+        return { whole, decimal };
+    };
+
+    return (
+        <section className="space-y-6">
+            {/* Top Row - Two Carousels */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Sezonun Öne Çıkanları */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-orange-200 transition-all">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg flex items-center justify-center shadow-md shadow-orange-500/25">
+                            <Sparkles className="w-4 h-4 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">Sezonun One Cikanlari</h3>
+                    </div>
+                    <div className="relative">
+                        <div className="flex items-center gap-4">
+                            {/* Navigation Left */}
+                            <button
+                                onClick={prevSeason}
+                                className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 hover:bg-orange-200 flex items-center justify-center transition-colors"
+                            >
+                                <ChevronLeft className="w-5 h-5 text-orange-600" />
+                            </button>
+
+                            {/* Product Card */}
+                            <div className="flex-1 flex items-center gap-4">
+                                <div className="w-28 h-36 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-orange-100">
+                                    <Package className="w-12 h-12 text-orange-300" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-medium text-slate-900 line-clamp-2 mb-2">
+                                        {seasonHighlights[activeSeasonIndex].name}
+                                    </h4>
+                                    <div className="flex items-baseline gap-1 mb-1">
+                                        <span className="text-2xl font-bold text-slate-900">
+                                            {formatPrice(seasonHighlights[activeSeasonIndex].price).whole}
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-900">
+                                            ,{formatPrice(seasonHighlights[activeSeasonIndex].price).decimal} TL
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-purple-600 font-medium mb-3">
+                                        {seasonHighlights[activeSeasonIndex].seller}
+                                    </p>
+                                    <Button size="sm" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs px-4 shadow-md shadow-orange-500/25">
+                                        Ilan Detayina Git
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Navigation Right */}
+                            <button
+                                onClick={nextSeason}
+                                className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 hover:bg-orange-200 flex items-center justify-center transition-colors"
+                            >
+                                <ChevronRight className="w-5 h-5 text-orange-600" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Haftanın Ürünleri */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition-all">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-md shadow-blue-500/25">
+                            <Clock className="w-4 h-4 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">Haftanin Urunleri</h3>
+                    </div>
+                    <div className="relative">
+                        <div className="flex items-center gap-4">
+                            {/* Navigation Left */}
+                            <button
+                                onClick={prevWeek}
+                                className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition-colors"
+                            >
+                                <ChevronLeft className="w-5 h-5 text-blue-600" />
+                            </button>
+
+                            {/* Product Card */}
+                            <div className="flex-1 flex items-center gap-4">
+                                <div className="w-28 h-36 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-blue-100">
+                                    <Package className="w-12 h-12 text-blue-300" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-medium text-slate-900 line-clamp-2 mb-2">
+                                        {weekProducts[activeWeekIndex].name}
+                                    </h4>
+                                    <div className="flex items-baseline gap-1 mb-1">
+                                        <span className="text-2xl font-bold text-slate-900">
+                                            {formatPrice(weekProducts[activeWeekIndex].price).whole}
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-900">
+                                            ,{formatPrice(weekProducts[activeWeekIndex].price).decimal} TL
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-purple-600 font-medium mb-3">
+                                        {weekProducts[activeWeekIndex].seller}
+                                    </p>
+                                    <Button size="sm" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs px-4 shadow-md shadow-orange-500/25">
+                                        Ilan Detayina Git
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Navigation Right */}
+                            <button
+                                onClick={nextWeek}
+                                className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition-colors"
+                            >
+                                <ChevronRight className="w-5 h-5 text-blue-600" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom Row - Son Satılanlar + Günün Fırsatı */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* Son Satılanlar - 3/5 width */}
+                <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-pink-200 transition-all">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg flex items-center justify-center shadow-md shadow-pink-500/25">
+                            <TrendingUp className="w-4 h-4 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">Son Satilanlar</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {recentlySold.map((product, index) => (
+                            <div key={product.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-pink-50 transition-colors cursor-pointer group">
+                                <div className={cn(
+                                    "w-16 h-16 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border",
+                                    index % 4 === 0 && "bg-gradient-to-br from-pink-50 to-rose-50 border-pink-100",
+                                    index % 4 === 1 && "bg-gradient-to-br from-purple-50 to-violet-50 border-purple-100",
+                                    index % 4 === 2 && "bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-100",
+                                    index % 4 === 3 && "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100",
+                                )}>
+                                    <Package className={cn(
+                                        "w-8 h-8",
+                                        index % 4 === 0 && "text-pink-300",
+                                        index % 4 === 1 && "text-purple-300",
+                                        index % 4 === 2 && "text-blue-300",
+                                        index % 4 === 3 && "text-amber-300",
+                                    )} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-medium text-slate-900 truncate group-hover:text-pink-600 transition-colors">
+                                        {product.name}
+                                    </h4>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-lg font-bold text-slate-900">
+                                            {formatPrice(product.price).whole}
+                                        </span>
+                                        <span className="text-xs font-medium text-slate-700">
+                                            ,{formatPrice(product.price).decimal} TL
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex-shrink-0 text-right">
+                                    <span className="text-sm text-slate-500">Kalan Stok: </span>
+                                    <span className={cn(
+                                        "text-sm font-bold",
+                                        product.stock < 10 ? "text-red-600" : product.stock < 100 ? "text-orange-600" : "text-emerald-600"
+                                    )}>{product.stock}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Günün Fırsatı - 2/5 width */}
+                <div className="lg:col-span-2 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 rounded-2xl border border-orange-200 p-5 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                        <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center shadow-md shadow-orange-500/25">
+                            <Zap className="w-4 h-4 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">Gunun Firsati</h3>
+                    </div>
+                    <div className="flex flex-col items-center text-center">
+                        <div className="relative w-full aspect-square max-w-[200px] mb-4">
+                            <div className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-br from-red-500 to-rose-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-red-500/30 z-10">
+                                %25
+                            </div>
+                            <div className="w-full h-full bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-md border border-orange-100">
+                                <Package className="w-16 h-16 text-orange-300" />
+                            </div>
+                        </div>
+                        <h4 className="text-sm font-medium text-slate-900 mb-2 line-clamp-2">
+                            {dealOfDay.name}
+                        </h4>
+                        <div className="flex items-baseline gap-1 mb-1">
+                            <span className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                                {formatPrice(dealOfDay.price).whole}
+                            </span>
+                            <span className="text-sm font-medium text-slate-900">
+                                ,{formatPrice(dealOfDay.price).decimal} TL
+                            </span>
+                        </div>
+                        <p className="text-sm text-purple-600 font-medium mb-4">
+                            {dealOfDay.seller}
+                        </p>
+                        <Button className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 font-semibold">
+                            Ilan Detayina Git
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
 // About/Trust Section Component
 function TrustSection() {
     return (
@@ -535,6 +790,9 @@ export default function MarketHomePage() {
                         rows={2}
                     />
                 )}
+
+                {/* Featured Sections - Sezonun Öne Çıkanları, Haftanın Ürünleri, Son Satılanlar, Günün Fırsatı */}
+                <FeaturedSections />
 
                 {/* 4. 2'li Kampanya ve Urun Bannerlari */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

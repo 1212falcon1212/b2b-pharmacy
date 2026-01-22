@@ -3,31 +3,37 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { productsApi, Product } from '@/lib/api';
+import { productsApi, Product, Category } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Package, Filter, SlidersHorizontal } from 'lucide-react';
 
-const CATEGORY_NAMES: Record<string, string> = {
-    'vitaminler': 'Vitaminler',
-    'antibiyotikler': 'Antibiyotikler',
-    'agri-kesiciler': 'Ağrı Kesiciler',
-    'kozmetik': 'Kozmetik',
-    'takviyeler': 'Takviyeler',
-    'bebek-urunleri': 'Bebek Ürünleri',
+// Slug'ı okunabilir isme dönüştür
+const formatSlugToName = (slug: string): string => {
+    // Özel karakterleri ve tire'leri boşluğa çevir
+    const words = slug.replace(/-/g, ' ').split(' ');
+
+    // Her kelimenin ilk harfini büyük yap
+    return words.map(word => {
+        if (!word) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(' ');
 };
 
 export default function MarketCategoryPage() {
     const params = useParams();
     const slug = params.slug as string;
-    const categoryName = CATEGORY_NAMES[slug] || slug;
+
+    const [categoryInfo, setCategoryInfo] = useState<Category | null>(null);
 
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+
+    // Kategori adını belirle: API'den gelen bilgi veya slug'dan dönüştür
+    const categoryName = categoryInfo?.name || formatSlugToName(slug);
 
     useEffect(() => {
         loadProducts();
@@ -44,6 +50,11 @@ export default function MarketCategoryPage() {
             if (response.data) {
                 setProducts(response.data.products);
                 setTotalPages(response.data.pagination?.last_page || 1);
+
+                // İlk üründen kategori bilgisini al
+                if (response.data.products.length > 0 && response.data.products[0].category) {
+                    setCategoryInfo(response.data.products[0].category);
+                }
             }
         } catch (error) {
             console.error('Failed to load products:', error);

@@ -29,7 +29,9 @@
       "Bash(git commit:*)",
       "Bash(ssh vps-root \"netstat -tlnp | grep 3000 && pm2 list\")",
       "Bash(ssh:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(npx eslint:*)",
+      "Bash(grep:*)"
     ]
   }
 }
