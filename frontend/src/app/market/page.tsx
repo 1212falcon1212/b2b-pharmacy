@@ -378,23 +378,23 @@ function TrustSection() {
             </div>
 
             {/* Stats Bar */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-8 shadow-lg shadow-emerald-500/20">
+            <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">5000+</div>
-                        <div className="text-emerald-100 text-sm">Kayitli Eczane</div>
+                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">5000+</div>
+                        <div className="text-slate-500 text-sm">Kayitli Eczane</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">50K+</div>
-                        <div className="text-emerald-100 text-sm">Urun Cesidi</div>
+                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">50K+</div>
+                        <div className="text-slate-500 text-sm">Urun Cesidi</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">500+</div>
-                        <div className="text-emerald-100 text-sm">Aktif Tedarikci</div>
+                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">500+</div>
+                        <div className="text-slate-500 text-sm">Aktif Tedarikci</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-3xl md:text-4xl font-bold text-white mb-1">%99</div>
-                        <div className="text-emerald-100 text-sm">Musteri Memnuniyeti</div>
+                        <div className="text-3xl md:text-4xl font-bold text-emerald-600 mb-1">%99</div>
+                        <div className="text-slate-500 text-sm">Musteri Memnuniyeti</div>
                     </div>
                 </div>
             </div>
