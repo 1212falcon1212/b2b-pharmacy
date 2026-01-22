@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ordersApi, Order, api } from '@/lib/api';
+import { ordersApi, Order, api, integrationsApi, UserIntegration } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,7 +45,9 @@ import {
     Tag,
     Percent,
     Home,
-    User
+    User,
+    Link2,
+    Loader2
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -55,6 +57,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { MarketHeader } from '@/components/market/MarketHeader';
+import { IntegrationCard } from '@/components/integrations/IntegrationCard';
 
 // Tab definitions
 const TABS = [
@@ -102,6 +105,7 @@ const TAB_SUBNAV: Record<string, { id: string; label: string; count?: number }[]
     'ayarlarim': [
         { id: 'profil', label: 'Profil Bilgilerim' },
         { id: 'adresler', label: 'Adreslerim' },
+        { id: 'erp-entegrasyonlari', label: 'ERP Entegrasyonlari' },
         { id: 'guvenlik', label: 'Guvenlik' },
         { id: 'bildirim-tercihleri', label: 'Bildirim Tercihleri' },
     ],
@@ -473,8 +477,56 @@ function ActivityContent({ subNav }: { subNav: string }) {
     );
 }
 
+// ERP Integration Data
+const AVAILABLE_INTEGRATIONS = [
+    {
+        id: 'entegra',
+        name: 'Entegra',
+        description: 'Entegra.com entegrasyonu ile tum pazar yerlerindeki urunlerinizi ve stoklarinizi tek panelden yonetin.',
+    },
+    {
+        id: 'parasut',
+        name: 'Parasut',
+        description: 'Parasut on muhasebe programi entegrasyonu ile fatura ve muhasebe islemlerinizi otomatiklestirin.',
+    },
+    {
+        id: 'sentos',
+        name: 'Sentos',
+        description: 'Sentos cok yonlu e-ticaret entegrasyonu ile stok ve siparis yonetimi.',
+    },
+    {
+        id: 'bizimhesap',
+        name: 'BizimHesap',
+        description: 'BizimHesap ERP ve on muhasebe entegrasyonu ile finansal sureclerinizi yonetin.',
+    },
+];
+
 // Settings Content
 function SettingsContent({ subNav, user }: { subNav: string; user: any }) {
+    const [integrations, setIntegrations] = useState<UserIntegration[]>([]);
+    const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+
+    useEffect(() => {
+        if (subNav === 'erp-entegrasyonlari') {
+            fetchIntegrations();
+        }
+    }, [subNav]);
+
+    const fetchIntegrations = async () => {
+        setLoadingIntegrations(true);
+        try {
+            const response = await integrationsApi.getAll();
+            const payload = response.data as any;
+            if (payload?.data) {
+                setIntegrations(payload.data);
+            }
+        } catch (error) {
+            console.error('Entegrasyonlar yuklenirken hata:', error);
+        } finally {
+            setLoadingIntegrations(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {subNav === 'profil' && (
@@ -517,6 +569,39 @@ function SettingsContent({ subNav, user }: { subNav: string; user: any }) {
                         <MapPin className="w-16 h-16 mx-auto text-slate-300 mb-4" />
                         <p className="text-slate-500">Kayitli adres bulunmuyor</p>
                     </div>
+                </div>
+            )}
+
+            {subNav === 'erp-entegrasyonlari' && (
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">ERP Entegrasyonlari</h3>
+                        <p className="text-sm text-slate-500">
+                            ERP ve muhasebe sistemleri ile entegre olun, urunlerinizi otomatik senkronize edin.
+                        </p>
+                    </div>
+
+                    {loadingIntegrations ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {AVAILABLE_INTEGRATIONS.map((erp) => {
+                                const integration = integrations.find((i) => i.erp_type === erp.id);
+                                return (
+                                    <IntegrationCard
+                                        key={erp.id}
+                                        id={erp.id}
+                                        name={erp.name}
+                                        description={erp.description}
+                                        integration={integration}
+                                        onUpdate={fetchIntegrations}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 
