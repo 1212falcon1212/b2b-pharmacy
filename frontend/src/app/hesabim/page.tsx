@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -562,8 +562,21 @@ function SettingsContent({ subNav, user }: { subNav: string; user: any }) {
     );
 }
 
-// Main Component
-export default function HesabimPage() {
+// Loading Fallback for Suspense
+function HesabimLoading() {
+    return (
+        <div className="min-h-screen bg-slate-50">
+            <MarketHeader />
+            <div className="p-8">
+                <Skeleton className="h-12 w-64 mb-8" />
+                <Skeleton className="h-64 w-full" />
+            </div>
+        </div>
+    );
+}
+
+// Main Content Component
+function HesabimContent() {
     const { user, isAuthenticated, isLoading, logout } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -757,5 +770,14 @@ export default function HesabimPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+// Export with Suspense wrapper
+export default function HesabimPage() {
+    return (
+        <Suspense fallback={<HesabimLoading />}>
+            <HesabimContent />
+        </Suspense>
     );
 }
