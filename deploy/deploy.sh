@@ -1,58 +1,48 @@
 #!/bin/bash
-# B2B Pharmacy Deploy Script
-# Bu script'i manuel veya webhook ile çalıştırabilirsiniz
-
 set -e
 
-# ======= YAPILANDIRMA =======
-REPO_PATH="/home/KULLANICI/htdocs/SITE"
+REPO_PATH="/home/i-depo/htdocs/i-depo.com/public"
 BRANCH="main"
 LOG_FILE="$REPO_PATH/deploy/deploy.log"
 
-# ======= FONKSİYONLAR =======
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
 
-# ======= DEPLOY BAŞLA =======
 log "=== Deploy Started ==="
 
 cd "$REPO_PATH"
 
+# Fix permissions before git operations
+chown -R i-depo:i-depo .git 2>/dev/null || true
+
 # Git pull
 log "Fetching latest code..."
-git fetch origin "$BRANCH"
-git reset --hard "origin/$BRANCH"
-log "Code updated to $(git rev-parse --short HEAD)"
+git fetch origin 2>&1 >> "$LOG_FILE" || log "Git fetch warning"
+git reset --hard origin/$BRANCH 2>&1 >> "$LOG_FILE" || log "Git reset warning"
+
+# Fix ownership after git pull
+chown -R i-depo:i-depo . 2>/dev/null || true
 
 # Backend deploy
-log "Deploying backend..."
+log "Running composer install..."
 cd "$REPO_PATH/backend"
+su - i-depo -c "cd $REPO_PATH/backend && composer install --no-dev --optimize-autoloader --no-interaction" 2>&1 >> "$LOG_FILE" || true
 
-# Composer install
-if [ -f "composer.json" ]; then
-    log "Installing composer dependencies..."
-    composer install --no-dev --optimize-autoloader --no-interaction
-fi
-
-# Laravel optimizations
 log "Running Laravel optimizations..."
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan storage:link 2>/dev/null || true
+su - i-depo -c "cd $REPO_PATH/backend && php artisan config:cache" 2>&1 >> "$LOG_FILE" || true
+su - i-depo -c "cd $REPO_PATH/backend && php artisan route:cache" 2>&1 >> "$LOG_FILE" || true
+su - i-depo -c "cd $REPO_PATH/backend && php artisan view:cache" 2>&1 >> "$LOG_FILE" || true
+su - i-depo -c "cd $REPO_PATH/backend && php artisan migrate --force" 2>&1 >> "$LOG_FILE" || true
 
-# Queue restart (eğer kullanıyorsanız)
-# php artisan queue:restart
+# Frontend deploy
+log "Building frontend..."
+cd "$REPO_PATH/frontend"
+su - i-depo -c "cd $REPO_PATH/frontend && npm install" 2>&1 >> "$LOG_FILE" || true
+su - i-depo -c "cd $REPO_PATH/frontend && npm run build" 2>&1 >> "$LOG_FILE" || true
 
-log "Backend deploy completed!"
+# Restart PM2
+log "Restarting PM2..."
+pm2 restart i-depo-frontend 2>&1 >> "$LOG_FILE" || pm2 start npm --name 'i-depo-frontend' -- start 2>&1 || true
 
-# Frontend deploy (opsiyonel)
-# log "Deploying frontend..."
-# cd "$REPO_PATH/frontend"
-# npm ci
-# npm run build
-# log "Frontend deploy completed!"
-
-log "=== Deploy Finished Successfully ==="
+log "=== Deploy Completed ==="
