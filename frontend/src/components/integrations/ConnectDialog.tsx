@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { integrationsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -17,144 +18,180 @@ interface ConnectDialogProps {
     onSuccess: () => void;
 }
 
+// ERP-specific configuration
+const ERP_CONFIG: Record<string, {
+    fields: {
+        api_key?: { label: string; required?: boolean; type?: string };
+        api_secret?: { label: string; required?: boolean; type?: string };
+        app_id?: { label: string; required?: boolean };
+        username?: { label: string; required?: boolean; type?: string };
+        password?: { label: string; required?: boolean; type?: string };
+        test_mode?: { label: string };
+    };
+    description?: string;
+}> = {
+    entegra: {
+        fields: {
+            api_key: { label: 'Kullanici Adi / Email', required: true },
+            api_secret: { label: 'Sifre', required: true, type: 'password' },
+        },
+        description: 'Entegra panelindeki giris bilgilerinizi girin.',
+    },
+    parasut: {
+        fields: {
+            api_key: { label: 'Client ID', required: true },
+            api_secret: { label: 'Client Secret', required: true, type: 'password' },
+            app_id: { label: 'Firma No (Company ID)', required: true },
+            username: { label: 'E-posta', required: true, type: 'email' },
+            password: { label: 'Sifre', required: true, type: 'password' },
+        },
+        description: 'Parasut API ayarlarindan bilgileri alin.',
+    },
+    sentos: {
+        fields: {
+            api_key: { label: 'API Key', required: true },
+            api_secret: { label: 'API Secret', required: true, type: 'password' },
+            app_id: { label: 'Magaza Adi (Subdomain)', required: true },
+        },
+        description: 'Sentos panelinizden API bilgilerini alin.',
+    },
+    bizimhesap: {
+        fields: {
+            api_key: { label: 'Token', required: true },
+            api_secret: { label: 'Key (BZMHB...)', required: true },
+        },
+        description: 'BizimHesap API bilgilerinizi girin.',
+    },
+    stockmount: {
+        fields: {
+            username: { label: 'Kullanici Adi', required: true },
+            password: { label: 'Sifre', required: true, type: 'password' },
+        },
+        description: 'StockMount giris bilgilerinizi girin. Alternatif olarak ApiKey/ApiPassword da kullanabilirsiniz.',
+    },
+    dopigo: {
+        fields: {
+            username: { label: 'Kullanici Adi', required: true },
+            password: { label: 'Sifre', required: true, type: 'password' },
+        },
+        description: 'Dopigo panel giris bilgilerinizi girin.',
+    },
+    kolaysoft: {
+        fields: {
+            username: { label: 'Kullanici Adi', required: true },
+            password: { label: 'Sifre', required: true, type: 'password' },
+            test_mode: { label: 'Test Modu' },
+        },
+        description: 'KolaySoft E-Fatura entegrasyonu. Test modunda canli fatura kesilmez.',
+    },
+};
+
 export function ConnectDialog({ erpType, erpName, isOpen, onOpenChange, onSuccess }: ConnectDialogProps) {
     const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<Record<string, string | boolean>>({
         api_key: '',
         api_secret: '',
         app_id: '',
         username: '',
         password: '',
+        test_mode: false,
     });
 
-    const getLabels = () => {
-        switch (erpType) {
-            case 'parasut':
-                return { apiKey: 'Client ID', apiSecret: 'Client Secret', appId: 'Company ID (Firma No)' };
-            case 'sentos':
-                return { apiKey: 'API Key', apiSecret: 'API Secret', appId: 'Mağaza Adı (Subdomain)' };
-            case 'bizimhesap':
-                return { apiKey: 'Token', apiSecret: 'Key (BZMHB...)', appId: 'Opsiyonel (Kullanılmıyor)' };
-            case 'entegra':
-                return { apiKey: 'Kullanıcı Adı / Email', apiSecret: 'Şifre', appId: 'Opsiyonel (Kullanılmıyor)' };
-            default:
-                return { apiKey: 'API Key', apiSecret: 'API Secret', appId: 'App ID' };
-        }
+    const config = ERP_CONFIG[erpType] || {
+        fields: {
+            api_key: { label: 'API Key', required: true },
+            api_secret: { label: 'API Secret', required: true, type: 'password' },
+        },
     };
-
-    const labels = getLabels();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
-            await integrationsApi.save({
+            const payload: Record<string, any> = {
                 erp_type: erpType,
-                api_key: formData.api_key,
-                api_secret: formData.api_secret,
-                app_id: formData.app_id || undefined,
-                username: formData.username || undefined,
-                password: formData.password || undefined,
-            } as any); // Use 'as any' to bypass strict type checking until interface is updated
+            };
 
-            toast.success(`${erpName} bağlantısı başarıyla kuruldu`);
+            // Add only non-empty fields
+            Object.entries(formData).forEach(([key, value]) => {
+                if (value !== '' && value !== false) {
+                    payload[key] = value;
+                }
+            });
+
+            await integrationsApi.save(payload as any);
+
+            toast.success(`${erpName} baglantisi basariyla kuruldu`);
             onSuccess();
             onOpenChange(false);
+
+            // Reset form
+            setFormData({
+                api_key: '',
+                api_secret: '',
+                app_id: '',
+                username: '',
+                password: '',
+                test_mode: false,
+            });
         } catch (error: any) {
-            toast.error(error.message || 'Bağlantı hatası oluştu');
+            toast.error(error.message || 'Baglanti hatasi olustu');
         } finally {
             setLoading(false);
         }
     };
 
+    const renderField = (fieldKey: string, fieldConfig: { label: string; required?: boolean; type?: string }) => {
+        if (fieldKey === 'test_mode') {
+            return (
+                <div key={fieldKey} className="flex items-center justify-between py-2">
+                    <Label htmlFor={fieldKey}>{fieldConfig.label}</Label>
+                    <Switch
+                        id={fieldKey}
+                        checked={formData[fieldKey] as boolean}
+                        onCheckedChange={(checked) => setFormData({ ...formData, [fieldKey]: checked })}
+                    />
+                </div>
+            );
+        }
+
+        return (
+            <div key={fieldKey} className="space-y-2">
+                <Label htmlFor={fieldKey}>{fieldConfig.label}</Label>
+                <Input
+                    id={fieldKey}
+                    type={fieldConfig.type || 'text'}
+                    value={formData[fieldKey] as string}
+                    onChange={(e) => setFormData({ ...formData, [fieldKey]: e.target.value })}
+                    required={fieldConfig.required}
+                    placeholder={fieldConfig.label}
+                />
+            </div>
+        );
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[450px]">
                 <DialogHeader>
                     <DialogTitle>{erpName} Entegrasyonu</DialogTitle>
                     <DialogDescription>
-                        Lütfen {erpName} entegrasyon bilgilerini giriniz.
+                        {config.description || `${erpName} entegrasyon bilgilerini giriniz.`}
                     </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="api_key" className="text-right">
-                            {labels.apiKey}
-                        </Label>
-                        <Input
-                            id="api_key"
-                            value={formData.api_key}
-                            onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                            className="col-span-3"
-                            required
-                        />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="api_secret" className="text-right">
-                            {labels.apiSecret}
-                        </Label>
-                        <Input
-                            id="api_secret"
-                            type="password"
-                            value={formData.api_secret}
-                            onChange={(e) => setFormData({ ...formData, api_secret: e.target.value })}
-                            className="col-span-3"
-                            required
-                        />
-                    </div>
-                    {erpType !== 'entegra' && erpType !== 'bizimhesap' && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="app_id" className="text-right">
-                                {labels.appId}
-                            </Label>
-                            <Input
-                                id="app_id"
-                                value={formData.app_id}
-                                onChange={(e) => setFormData({ ...formData, app_id: e.target.value })}
-                                className="col-span-3"
-                                required={erpType === 'parasut' || erpType === 'sentos'}
-                            />
-                        </div>
+                <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                    {Object.entries(config.fields).map(([key, fieldConfig]) =>
+                        renderField(key, fieldConfig)
                     )}
 
-                    {erpType === 'parasut' && (
-                        <>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="username" className="text-right">
-                                    E-posta
-                                </Label>
-                                <Input
-                                    id="username"
-                                    type="email"
-                                    value={formData.username}
-                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                    className="col-span-3"
-                                    required
-                                    placeholder="Paraşüt giriş maili"
-                                />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="password" className="text-right">
-                                    Şifre
-                                </Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="col-span-3"
-                                    required
-                                    placeholder="Paraşüt giriş şifresi"
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    <DialogFooter>
-                        <Button type="submit" disabled={loading}>
+                    <DialogFooter className="pt-4">
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                            Iptal
+                        </Button>
+                        <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Bağlan
+                            Baglan
                         </Button>
                     </DialogFooter>
                 </form>

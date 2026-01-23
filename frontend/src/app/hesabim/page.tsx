@@ -477,27 +477,49 @@ function ActivityContent({ subNav }: { subNav: string }) {
     );
 }
 
-// ERP Integration Data
+// ERP Integration Data - Test edilmis entegrasyonlar
 const AVAILABLE_INTEGRATIONS = [
     {
-        id: 'entegra',
-        name: 'Entegra',
-        description: 'Entegra.com entegrasyonu ile tum pazar yerlerindeki urunlerinizi ve stoklarinizi tek panelden yonetin.',
+        id: 'bizimhesap',
+        name: 'BizimHesap',
+        description: 'BizimHesap muhasebe ve fatura entegrasyonu',
+        logo: '/erp-logos/bizimhesap.png',
     },
     {
         id: 'parasut',
         name: 'Parasut',
-        description: 'Parasut on muhasebe programi entegrasyonu ile fatura ve muhasebe islemlerinizi otomatiklestirin.',
+        description: 'Parasut bulut muhasebe entegrasyonu',
+        logo: '/erp-logos/parasut.png',
+    },
+    {
+        id: 'entegra',
+        name: 'Entegra',
+        description: 'Entegra ERP entegrasyonu',
+        logo: '/erp-logos/entegra.png',
     },
     {
         id: 'sentos',
         name: 'Sentos',
-        description: 'Sentos cok yonlu e-ticaret entegrasyonu ile stok ve siparis yonetimi.',
+        description: 'Sentos ERP entegrasyonu (Basic Auth)',
+        logo: '/erp-logos/sentos.png',
     },
     {
-        id: 'bizimhesap',
-        name: 'BizimHesap',
-        description: 'BizimHesap ERP ve on muhasebe entegrasyonu ile finansal sureclerinizi yonetin.',
+        id: 'stockmount',
+        name: 'StockMount',
+        description: 'StockMount siparis ve urun yonetimi',
+        logo: '/erp-logos/stockmount.png',
+    },
+    {
+        id: 'dopigo',
+        name: 'Dopigo',
+        description: 'Dopigo siparis ve urun yonetimi',
+        logo: '/erp-logos/dopigo.png',
+    },
+    {
+        id: 'kolaysoft',
+        name: 'KolaySoft',
+        description: 'KolaySoft E-Fatura ve E-Arsiv entegrasyonu',
+        logo: '/erp-logos/kolaysoft.png',
     },
 ];
 
@@ -574,6 +596,14 @@ function SettingsContent({ subNav, user }: { subNav: string; user: any }) {
 
             {subNav === 'erp-entegrasyonlari' && (
                 <div className="space-y-6">
+                    {/* Info Banner */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-blue-800">
+                            Bu sayfadan ERP sistemlerinizin API bilgilerini girebilir ve yonetebilirsiniz.
+                        </p>
+                    </div>
+
                     <div>
                         <h3 className="text-lg font-bold text-slate-900 mb-1">ERP Entegrasyonlari</h3>
                         <p className="text-sm text-slate-500">
@@ -586,7 +616,7 @@ function SettingsContent({ subNav, user }: { subNav: string; user: any }) {
                             <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {AVAILABLE_INTEGRATIONS.map((erp) => {
                                 const integration = integrations.find((i) => i.erp_type === erp.id);
                                 return (
@@ -595,6 +625,7 @@ function SettingsContent({ subNav, user }: { subNav: string; user: any }) {
                                         id={erp.id}
                                         name={erp.name}
                                         description={erp.description}
+                                        logo={erp.logo}
                                         integration={integration}
                                         onUpdate={fetchIntegrations}
                                     />

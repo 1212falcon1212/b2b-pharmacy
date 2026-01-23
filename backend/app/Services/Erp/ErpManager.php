@@ -8,6 +8,9 @@ use App\Services\Erp\Providers\EntegraProvider;
 use App\Services\Erp\Providers\BizimHesapProvider;
 use App\Services\Erp\Providers\SentosProvider;
 use App\Services\Erp\Providers\ParasutProvider;
+use App\Services\Erp\Providers\StockMountProvider;
+use App\Services\Erp\Providers\DopigoProvider;
+use App\Services\Erp\Providers\KolaySoftProvider;
 use InvalidArgumentException;
 
 class ErpManager
@@ -22,6 +25,9 @@ class ErpManager
             'bizimhesap' => new BizimHesapProvider($integration),
             'parasut' => new ParasutProvider($integration),
             'sentos' => new SentosProvider($integration),
+            'stockmount' => new StockMountProvider($integration),
+            'dopigo' => new DopigoProvider($integration),
+            'kolaysoft' => new KolaySoftProvider($integration),
             default => throw new InvalidArgumentException("Unsupported ERP type: {$integration->erp_type}"),
         };
     }
