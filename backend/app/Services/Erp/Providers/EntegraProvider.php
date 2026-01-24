@@ -646,4 +646,131 @@ class EntegraProvider implements ErpIntegrationInterface
 
         return $rates[$kdvId] ?? 18;
     }
+
+    /**
+     * Sync order from system to Entegra
+     */
+    public function syncOrder($order): array
+    {
+        try {
+            $customer = $order->customer ?? null;
+            $user = $customer->user ?? null;
+            $address = $order->address ?? $order->deliveryAddress ?? null;
+            $billingAddress = $order->billing_address ?? $order->invoiceAddress ?? $address;
+
+            // Parse name
+            $fullName = $user->name ?? 'Musteri';
+            $nameParts = explode(' ', trim($fullName));
+            $firstName = $nameParts[0] ?? '';
+            $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : $firstName;
+
+            // Build address strings
+            $invoiceAddressText = $billingAddress->address ?? $billingAddress->address_line ?? '';
+            if (empty($invoiceAddressText) && $billingAddress) {
+                $parts = [];
+                if (!empty($billingAddress->street)) $parts[] = $billingAddress->street;
+                if (!empty($billingAddress->building_no)) $parts[] = 'No:' . $billingAddress->building_no;
+                if (!empty($billingAddress->neighborhood)) $parts[] = $billingAddress->neighborhood;
+                $invoiceAddressText = implode(' ', $parts);
+            }
+
+            $shipAddressText = $address->address ?? $address->address_line ?? $invoiceAddressText;
+            if (empty($shipAddressText) && $address) {
+                $parts = [];
+                if (!empty($address->street)) $parts[] = $address->street;
+                if (!empty($address->building_no)) $parts[] = 'No:' . $address->building_no;
+                if (!empty($address->neighborhood)) $parts[] = $address->neighborhood;
+                $shipAddressText = implode(' ', $parts);
+            }
+
+            // Build order products
+            $orderProducts = [];
+            foreach ($order->products as $product) {
+                $quantity = $product->pivot->quantity ?? 1;
+                $unitPrice = $product->pivot->price ?? $product->price ?? 0;
+                $vatRate = $product->vat_tax->rate ?? $product->vat_rate ?? 18;
+
+                $orderProducts[] = [
+                    'product_id' => $product->id,
+                    'product_code' => $product->sku ?? $product->barcode ?? ('PROD-' . $product->id),
+                    'name' => $product->name,
+                    'quantity' => $quantity,
+                    'price' => $unitPrice,
+                    'total' => $quantity * $unitPrice,
+                    'kdv_id' => $vatRate,
+                ];
+            }
+
+            $orderData = [
+                'customer_id' => $customer->id ?? null,
+                'firstname' => $firstName,
+                'lastname' => $lastName,
+                'email' => $user->email ?? '',
+                'mobil_phone' => $address->phone ?? $user->phone ?? '',
+                'telephone' => $address->phone ?? $user->phone ?? '',
+                'invoice_address' => $invoiceAddressText,
+                'invoice_city' => $billingAddress->city ?? $billingAddress->province ?? '',
+                'invoice_district' => $billingAddress->district ?? $billingAddress->area ?? '',
+                'invoice_postcode' => $billingAddress->postal_code ?? $billingAddress->post_code ?? '',
+                'ship_address' => $shipAddressText,
+                'ship_city' => $address->city ?? $address->province ?? '',
+                'ship_district' => $address->district ?? $address->area ?? '',
+                'ship_postcode' => $address->postal_code ?? $address->post_code ?? '',
+                'total' => $order->total_amount ?? $order->payable_amount ?? 0,
+                'grand_total' => $order->payable_amount ?? $order->total_amount ?? 0,
+                'order_product' => $orderProducts,
+                'order_number' => $order->prefix . $order->order_code,
+                'note' => $order->note ?? $order->order_note ?? '',
+            ];
+
+            // Add tax info if company
+            if ($customer && !empty($customer->tax_number)) {
+                $orderData['tax_number'] = $customer->tax_number;
+                $orderData['tax_office'] = $customer->tax_office ?? '';
+                $orderData['company_name'] = $customer->company_name ?? '';
+            }
+
+            Log::info('Entegra syncOrder Request', [
+                'order_id' => $order->id,
+                'order_code' => $order->order_code,
+            ]);
+
+            $result = $this->createOrder($orderData);
+
+            if ($result['success']) {
+                $result['order_number'] = $order->prefix . $order->order_code;
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            Log::error('Entegra syncOrder Error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Siparis gonderme hatasi: ' . $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+
+    /**
+     * Create invoice - wrapper for syncOrder
+     * Entegra uses orders as invoices
+     */
+    public function createInvoice(array $invoiceData): array
+    {
+        if (isset($invoiceData['order']) && is_object($invoiceData['order'])) {
+            return $this->syncOrder($invoiceData['order']);
+        }
+
+        // If raw order data provided, use createOrder directly
+        if (isset($invoiceData['order_product']) || isset($invoiceData['firstname'])) {
+            return $this->createOrder($invoiceData);
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Entegra icin siparis nesnesi veya siparis verisi gerekli.',
+            'data' => null
+        ];
+    }
 }

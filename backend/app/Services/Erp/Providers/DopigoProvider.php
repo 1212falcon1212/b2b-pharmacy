@@ -207,4 +207,212 @@ class DopigoProvider implements ErpIntegrationInterface
             'vat_rate' => (int) ($erpProduct['vat'] ?? 18),
         ];
     }
+
+    /**
+     * Sync order from system to Dopigo
+     */
+    public function syncOrder($order): array
+    {
+        try {
+            // Rate limit: 2 requests per second
+            $rateLimitKey = 'dopigo_rate_limit_' . $this->integration->id;
+            $lastRequest = Cache::get($rateLimitKey);
+
+            if ($lastRequest && (now()->timestamp - $lastRequest) < 1) {
+                usleep(500000); // Wait 500ms
+            }
+
+            $customer = $order->customer ?? null;
+            $user = $customer->user ?? null;
+            $address = $order->address ?? null;
+            $billingAddress = $order->billing_address ?? $address;
+
+            // Helper to format phone
+            $formatPhone = function($phone) {
+                if (!$phone) return '+905555555555';
+                $phone = preg_replace('/\D/', '', $phone);
+
+                if (strlen($phone) === 12 && str_starts_with($phone, '90')) {
+                    return '+' . $phone;
+                }
+
+                if (strlen($phone) === 11 && str_starts_with($phone, '0')) {
+                    $phone = substr($phone, 1);
+                }
+
+                if (strlen($phone) === 10) {
+                    return '+90' . $phone;
+                }
+
+                if (strlen($phone) > 12 || strlen($phone) < 10) {
+                    return '+905555555555';
+                }
+
+                return $phone;
+            };
+
+            // Build address object
+            $addressData = [
+                'full_address' => ($address->address_line ?? $address->address ?? '') . ' ' . ($address->address_line2 ?? ''),
+                'contact_full_name' => $address->name ?? ($user->name ?? ''),
+                'contact_phone_number' => $formatPhone($address->phone ?? ($user->phone ?? '')),
+                'city' => $address->city ?? $address->area ?? '',
+                'district' => $address->district ?? $address->area ?? '',
+                'zip_code' => $address->postal_code ?? $address->post_code ?? '',
+            ];
+
+            $billingAddressData = [
+                'full_address' => ($billingAddress->address_line ?? $billingAddress->address ?? ($addressData['full_address'] ?? '')),
+                'contact_full_name' => $billingAddress->name ?? $addressData['contact_full_name'],
+                'contact_phone_number' => $formatPhone($billingAddress->phone ?? $addressData['contact_phone_number']),
+                'city' => $billingAddress->city ?? $billingAddress->area ?? $addressData['city'],
+                'district' => $billingAddress->district ?? $billingAddress->area ?? $addressData['district'],
+                'zip_code' => $billingAddress->postal_code ?? $billingAddress->post_code ?? $addressData['zip_code'],
+            ];
+
+            // Determine account type
+            $accountType = 'person';
+            $taxId = null;
+            $taxOffice = null;
+            $companyName = '';
+
+            if ($customer && !empty($customer->tax_number)) {
+                $accountType = 'company';
+                $taxId = $customer->tax_number;
+                $taxOffice = $customer->tax_office ?? null;
+                $companyName = $customer->company_name ?? '';
+            }
+
+            // Build order items
+            $items = [];
+            $orderProducts = $order->products ?? [];
+
+            foreach ($orderProducts as $product) {
+                $quantity = $product->pivot->quantity ?? 1;
+                $unitPrice = $product->pivot->price ?? $product->price ?? 0;
+                $totalPrice = $quantity * $unitPrice;
+                $vatRate = $product->vat_tax->rate ?? 18;
+
+                $items[] = [
+                    'service_item_id' => $order->id . '-' . $product->id . '-' . uniqid(),
+                    'service_product_id' => (string) $product->id,
+                    'service_shipment_code' => $order->tracking_number ?? null,
+                    'sku' => $product->sku ?: ($product->barcode ?: ('PROD-' . $product->id)),
+                    'attributes' => '',
+                    'name' => $product->name,
+                    'amount' => $quantity,
+                    'price' => number_format($totalPrice, 2, '.', ''),
+                    'unit_price' => number_format($unitPrice, 2, '.', ''),
+                    'shipment_campaign_code' => null,
+                    'buyer_pays_shipment' => false,
+                    'status' => 'shipped',
+                    'vat' => $vatRate,
+                    'tax_ratio' => $vatRate,
+                    'product' => [
+                        'sku' => $product->sku ?: ($product->barcode ?: ('PROD-' . $product->id)),
+                    ]
+                ];
+            }
+
+            // Build order payload
+            $orderData = [
+                'service' => 1,
+                'service_name' => 'b2b-pharmacy',
+                'sales_channel' => 'i-depo.com',
+                'service_created' => $order->created_at->format('Y-m-d H:i:s'),
+                'service_value' => $order->prefix . $order->order_code,
+                'service_order_id' => (string) $order->id,
+                'customer' => [
+                    'account_type' => $accountType,
+                    'full_name' => $user->name ?? 'Musteri',
+                    'address' => $addressData,
+                    'email' => $user->email ?? '',
+                    'phone_number' => $formatPhone($address->phone ?? ($user->phone ?? '')),
+                    'tax_id' => $taxId,
+                    'tax_office' => $taxOffice,
+                    'company_name' => $companyName,
+                ],
+                'billing_address' => $billingAddressData,
+                'shipping_address' => $addressData,
+                'shipped_date' => null,
+                'payment_type' => 'undefined',
+                'status' => 'shipped',
+                'total' => number_format($order->payable_amount ?? 0, 2, '.', ''),
+                'service_fee' => number_format($order->shipping_charge ?? 0, 2, '.', ''),
+                'discount' => null,
+                'archived' => false,
+                'notes' => $order->note ?? '',
+                'items' => $items,
+            ];
+
+            Log::info('Dopigo Order Request', [
+                'order_id' => $order->id,
+                'order_code' => $order->order_code,
+            ]);
+
+            $response = $this->getHttpClient()
+                ->post($this->baseUrl . '/api/v1/orders/', $orderData);
+
+            // Update rate limit cache
+            Cache::put($rateLimitKey, now()->timestamp, 60);
+
+            Log::info('Dopigo Order Response', [
+                'status' => $response->status(),
+            ]);
+
+            if ($response->successful()) {
+                $responseData = $response->json();
+
+                return [
+                    'success' => true,
+                    'data' => $responseData,
+                    'message' => 'Siparis Dopigo\'ya basariyla gonderildi.',
+                    'order_id' => $responseData['id'] ?? null,
+                    'order_number' => $responseData['service_value'] ?? ($order->prefix . $order->order_code),
+                    'invoice_number' => $responseData['invoice_number'] ?? null,
+                ];
+            }
+
+            $errorMessage = 'Siparis gonderilemedi';
+            if ($response->status() === 401) {
+                Cache::forget('dopigo_token_' . $this->integration->id);
+                $errorMessage = 'Kimlik dogrulama basarisiz.';
+            } elseif ($response->status() === 400) {
+                $errorData = $response->json();
+                $errorMessage = 'Gecersiz istek: ' . json_encode($errorData);
+            } else {
+                $errorMessage .= ': ' . $response->body();
+            }
+
+            return [
+                'success' => false,
+                'message' => $errorMessage,
+                'data' => $response->json() ?? null
+            ];
+        } catch (\Exception $e) {
+            Log::error('Dopigo Order Error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Siparis gonderme hatasi: ' . $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+
+    /**
+     * Create invoice - wrapper for syncOrder
+     * Dopigo uses orders as invoices
+     */
+    public function createInvoice(array $invoiceData): array
+    {
+        if (isset($invoiceData['order']) && is_object($invoiceData['order'])) {
+            return $this->syncOrder($invoiceData['order']);
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Dopigo icin siparis nesnesi gerekli. createInvoice yerine syncOrder kullanin.',
+            'data' => null
+        ];
+    }
 }

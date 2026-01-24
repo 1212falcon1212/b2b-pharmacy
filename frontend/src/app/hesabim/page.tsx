@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ordersApi, Order, api, integrationsApi, UserIntegration } from '@/lib/api';
+import { ordersApi, Order, SellerOrder, api, integrationsApi, UserIntegration, sellerApi, SellerOrderDetail } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -326,83 +326,789 @@ function ListingsContent({ subNav }: { subNav: string }) {
     );
 }
 
-// Orders Content
-function OrdersContent({ subNav, orders }: { subNav: string; orders: Order[] }) {
+// Status icon component
+function StatusIcon({ status }: { status: string }) {
+    const icons: Record<string, { icon: React.ReactNode; color: string }> = {
+        pending: { icon: <Clock className="w-4 h-4" />, color: 'text-amber-500' },
+        confirmed: { icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-blue-500' },
+        processing: { icon: <Package className="w-4 h-4" />, color: 'text-purple-500' },
+        shipped: { icon: <Truck className="w-4 h-4" />, color: 'text-orange-500' },
+        delivered: { icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-green-500' },
+        cancelled: { icon: <XCircle className="w-4 h-4" />, color: 'text-red-500' },
+    };
+    const config = icons[status] || icons.pending;
+    return <span className={config.color}>{config.icon}</span>;
+}
+
+// Copy button component
+function CopyButton({ text }: { text: string }) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+    return (
+        <button onClick={handleCopy} className="text-slate-400 hover:text-slate-600 transition-colors">
+            {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Link2 className="w-3.5 h-3.5" />}
+        </button>
+    );
+}
+
+// Orders Content - Referans tasarima uygun
+function OrdersContent({
+    subNav,
+    buyerOrders,
+    sellerOrders,
+    loadingOrders,
+    onViewOrderDetail,
+    statusFilter,
+    onStatusFilterChange
+}: {
+    subNav: string;
+    buyerOrders: Order[];
+    sellerOrders: SellerOrder[];
+    loadingOrders: boolean;
+    onViewOrderDetail: (orderId: number, isSeller: boolean) => void;
+    statusFilter: string;
+    onStatusFilterChange: (filter: string) => void;
+}) {
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+
     const formatPrice = (price: number) => new Intl.NumberFormat('tr-TR', {
-        style: 'currency',
-        currency: 'TRY',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
     }).format(price);
 
-    const getStatusBadge = (status: string) => {
-        const configs: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-            pending: { label: 'Bekliyor', variant: 'secondary' },
-            processing: { label: 'Hazirlaniyor', variant: 'default' },
-            shipped: { label: 'Kargoda', variant: 'default' },
-            delivered: { label: 'Teslim Edildi', variant: 'outline' },
-            cancelled: { label: 'Iptal', variant: 'destructive' },
-        };
-        const config = configs[status] || { label: status, variant: 'secondary' as const };
-        return <Badge variant={config.variant}>{config.label}</Badge>;
+    const formatDate = (date: string) => {
+        const d = new Date(date);
+        return `${d.toLocaleDateString('tr-TR')} — ${d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
     };
 
-    const filteredOrders = orders; // In real app, filter based on subNav
+    const getStatusLabel = (status: string) => {
+        const labels: Record<string, string> = {
+            pending: 'Beklemede',
+            confirmed: 'Onaylandi',
+            processing: 'Hazirlaniyor',
+            shipped: 'Kargoda',
+            delivered: 'Tamamlandi',
+            cancelled: 'Iptal Edildi',
+        };
+        return labels[status] || status;
+    };
+
+    // Filter orders by status
+    const filterOrders = (orders: any[]) => {
+        if (statusFilter === 'all') return orders;
+        if (statusFilter === 'active') return orders.filter(o => ['pending', 'confirmed', 'processing'].includes(o.status));
+        return orders.filter(o => o.status === statusFilter);
+    };
+
+    // Show loading state
+    if (loadingOrders) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+            </div>
+        );
+    }
+
+    const isSeller = subNav === 'sattiklarim';
+    const isIptalIade = subNav === 'iptal-iade';
+
+    // Get base orders based on section
+    let orders: any[] = [];
+    if (isIptalIade) {
+        // For İptal & İade section, show cancelled orders from both buyer and seller
+        const cancelledBuyerOrders = buyerOrders.filter(o => o.status === 'cancelled');
+        const cancelledSellerOrders = sellerOrders.filter(o => o.status === 'cancelled');
+        orders = [...cancelledBuyerOrders, ...cancelledSellerOrders];
+    } else {
+        orders = isSeller ? sellerOrders : buyerOrders;
+    }
+
+    // Apply additional status filter (only for non-iptal-iade sections)
+    const filteredOrders = isIptalIade ? orders : filterOrders(orders);
+
+    // Empty state
+    if (orders.length === 0) {
+        return (
+            <div className="text-center py-12 bg-slate-50 rounded-xl">
+                {isSeller ? (
+                    <>
+                        <Store className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-500 mb-4">Henuz satis yapmadiniz</p>
+                        <Link href="/seller/products/new">
+                            <Button variant="outline">Urun Ekle</Button>
+                        </Link>
+                    </>
+                ) : subNav === 'iptal-iade' ? (
+                    <>
+                        <XCircle className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-500 mb-4">Iptal veya iade talebi bulunmuyor</p>
+                    </>
+                ) : (
+                    <>
+                        <ShoppingBag className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-500 mb-4">Henuz siparisiniz bulunmuyor</p>
+                        <Link href="/market">
+                            <Button variant="outline">Alisverise Basla</Button>
+                        </Link>
+                    </>
+                )}
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <Input placeholder="Siparis no veya urun ara..." className="pl-9 w-full" />
+        <div className="space-y-4">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <h2 className="text-lg font-bold text-slate-900">
+                        {isIptalIade ? 'Iptal & Iade Taleplerim' : isSeller ? 'Tum Sattiklarim' : 'Tum Aldiklarim'}
+                    </h2>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-9">
+                            <Filter className="w-4 h-4 mr-2" />
+                            Sirala
+                        </Button>
+                        <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={cn(
+                                    "p-2 transition-colors",
+                                    viewMode === 'grid' ? "bg-slate-100" : "hover:bg-slate-50"
+                                )}
+                            >
+                                <BarChart3 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={cn(
+                                    "p-2 transition-colors",
+                                    viewMode === 'list' ? "bg-slate-100" : "hover:bg-slate-50"
+                                )}
+                            >
+                                <FileText className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <Input
+                                placeholder="Urun, kullanici, siparis ara"
+                                className="pl-9 w-full sm:w-64 h-9"
+                            />
+                        </div>
+                    </div>
                 </div>
-                <Button variant="outline" className="w-full sm:w-auto shrink-0">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Tarih Filtrele
-                </Button>
-            </div>
 
-            {filteredOrders.length === 0 ? (
-                <div className="text-center py-12 bg-slate-50 rounded-xl">
-                    <ShoppingBag className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-                    <p className="text-slate-500 mb-4">
-                        {subNav === 'satin-aldiklarim' && 'Henuz siparisiniz bulunmuyor'}
-                        {subNav === 'sattiklarim' && 'Henuz satis yapmadiniz'}
-                        {subNav === 'iptal-iade' && 'Iptal veya iade talebi bulunmuyor'}
-                    </p>
-                    <Link href="/market">
-                        <Button variant="outline">Alisverise Basla</Button>
-                    </Link>
-                </div>
-            ) : (
+                {/* Orders List */}
                 <div className="space-y-3">
-                    {filteredOrders.map((order) => (
-                        <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 transition-colors">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
-                                        <Package className="w-6 h-6 text-slate-400" />
+                    {filteredOrders.map((order: any) => (
+                        <div
+                            key={order.id}
+                            className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow"
+                        >
+                            <div className="flex flex-col md:flex-row gap-4">
+                                {/* Sol - Urun Gorseli */}
+                                <div className="flex items-start gap-4 md:w-1/3">
+                                    <div className="text-xs text-slate-500 whitespace-nowrap pt-1">
+                                        {order.items?.length || 1} farkli urun
                                     </div>
-                                    <div className="min-w-0">
-                                        <p className="font-semibold text-slate-900">Siparis #{order.id}</p>
-                                        <p className="text-sm text-slate-500">
-                                            {new Date(order.created_at).toLocaleDateString('tr-TR')}
-                                        </p>
+                                    <div className="w-20 h-20 bg-slate-100 rounded-lg flex items-center justify-center shrink-0 border border-slate-200">
+                                        <Package className="w-10 h-10 text-slate-300" />
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 pl-16 sm:pl-0">
-                                    {getStatusBadge(order.status)}
-                                    <span className="font-bold text-slate-900 whitespace-nowrap">{formatPrice(order.total_amount)}</span>
-                                    <Link href={`/account/orders/${order.id}`}>
-                                        <Button variant="ghost" size="sm" className="shrink-0">
-                                            <Eye className="w-4 h-4 sm:mr-1" />
-                                            <span className="hidden sm:inline">Detay</span>
-                                        </Button>
-                                    </Link>
+
+                                {/* Sag - Siparis Detaylari */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                        {/* Siparis Bilgileri */}
+                                        <div className="space-y-1.5">
+                                            {/* Durum */}
+                                            <div className="flex items-center gap-2">
+                                                <span className={cn(
+                                                    "font-semibold",
+                                                    order.status === 'shipped' && "text-orange-600",
+                                                    order.status === 'delivered' && "text-green-600",
+                                                    order.status === 'cancelled' && "text-red-600",
+                                                    order.status === 'pending' && "text-amber-600",
+                                                    order.status === 'processing' && "text-purple-600"
+                                                )}>
+                                                    {getStatusLabel(order.status)}
+                                                </span>
+                                                <StatusIcon status={order.status} />
+                                            </div>
+
+                                            {/* Teslimat */}
+                                            {order.shipping_provider && (
+                                                <p className="text-sm text-slate-600">
+                                                    Teslimat: <span className="font-medium uppercase">{order.shipping_provider}</span>
+                                                    {order.tracking_number && (
+                                                        <Link href="#" className="text-purple-600 hover:underline ml-2">
+                                                            Kargo Detay
+                                                        </Link>
+                                                    )}
+                                                </p>
+                                            )}
+
+                                            {/* Siparis No */}
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="text-slate-500">Siparis:</span>
+                                                <span className="font-medium text-slate-700">{order.order_number}</span>
+                                                <CopyButton text={order.order_number} />
+                                            </div>
+
+                                            {/* Alici/Satici */}
+                                            <p className="text-sm text-slate-500">
+                                                {/* For İptal & İade section, detect if it's a seller or buyer order by checking for seller_total */}
+                                                {isIptalIade ? (
+                                                    order.seller_total !== undefined ? (
+                                                        <>
+                                                            <Badge variant="outline" className="mr-2 text-xs bg-purple-50 text-purple-700 border-purple-200">Satici</Badge>
+                                                            Alici: <span className="text-slate-700">{order.buyer?.pharmacy_name || '-'}</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Badge variant="outline" className="mr-2 text-xs bg-blue-50 text-blue-700 border-blue-200">Alici</Badge>
+                                                            Satici: <span className="text-slate-700">{order.seller?.pharmacy_name || '-'}</span>
+                                                        </>
+                                                    )
+                                                ) : (
+                                                    <>
+                                                        {isSeller ? 'Alici: ' : 'Satici: '}
+                                                        <span className="text-slate-700">
+                                                            {isSeller ? order.buyer?.pharmacy_name : order.seller?.pharmacy_name || '-'}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </p>
+
+                                            {/* Tarih */}
+                                            <p className="text-sm text-slate-500">
+                                                Tarih: {formatDate(order.created_at)}
+                                            </p>
+                                        </div>
+
+                                        {/* Fiyat ve Butonlar */}
+                                        <div className="flex flex-col items-end gap-3">
+                                            <p className="text-xl font-bold text-slate-900">
+                                                {formatPrice(
+                                                    isIptalIade
+                                                        ? (order.seller_total !== undefined ? order.seller_total : order.total_amount)
+                                                        : (isSeller ? order.seller_total : order.total_amount)
+                                                )}
+                                                <span className="text-sm font-normal ml-1">TL</span>
+                                            </p>
+                                            <div className="flex flex-wrap gap-2 justify-end">
+                                                {order.tracking_number && (
+                                                    <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50">
+                                                        Kargom Nerede?
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                                                    onClick={() => onViewOrderDetail(
+                                                        order.id,
+                                                        isIptalIade ? order.seller_total !== undefined : isSeller
+                                                    )}
+                                                >
+                                                    Siparise Git
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
-            )}
+
+                {filteredOrders.length === 0 && (
+                    <div className="text-center py-12 bg-slate-50 rounded-xl">
+                        <Package className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                        <p className="text-slate-500">Bu filtreye uygun siparis bulunamadi</p>
+                        <Button variant="link" onClick={() => onStatusFilterChange('all')} className="text-purple-600">
+                            Tum siparisleri goster
+                        </Button>
+                    </div>
+                )}
+        </div>
+    );
+}
+
+// Order Detail View - Referans tasarima uygun
+function OrderDetailView({
+    orderId,
+    isSeller,
+    onBack
+}: {
+    orderId: number;
+    isSeller: boolean;
+    onBack: () => void;
+}) {
+    const [order, setOrder] = useState<Order | null>(null);
+    const [sellerOrderDetail, setSellerOrderDetail] = useState<SellerOrderDetail | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        loadOrderDetail();
+    }, [orderId, isSeller]);
+
+    const loadOrderDetail = async () => {
+        setIsLoading(true);
+        try {
+            if (isSeller) {
+                const response = await sellerApi.getOrderDetail(orderId);
+                if (response.data?.data) {
+                    setSellerOrderDetail(response.data.data);
+                }
+            } else {
+                const response = await ordersApi.get(orderId);
+                if (response.data?.order) {
+                    setOrder(response.data.order);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load order:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const formatPrice = (price: number) => new Intl.NumberFormat('tr-TR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(price);
+
+    const formatDate = (date: string) => {
+        const d = new Date(date);
+        return `${d.toLocaleDateString('tr-TR')} — ${d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+    };
+
+    const getStatusLabel = (status: string) => {
+        const labels: Record<string, string> = {
+            pending: 'Beklemede',
+            confirmed: 'Onaylandi',
+            processing: 'Hazirlaniyor',
+            shipped: 'Kargoda',
+            delivered: 'Tamamlandi',
+            cancelled: 'Iptal Edildi',
+        };
+        return labels[status] || status;
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+            </div>
+        );
+    }
+
+    // Seller order detail view
+    if (isSeller && sellerOrderDetail) {
+        const autoCompleteDate = new Date(sellerOrderDetail.created_at);
+        autoCompleteDate.setDate(autoCompleteDate.getDate() + 14);
+
+        return (
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Sol Sidebar - Siparis Ozeti */}
+                <div className="lg:w-64 shrink-0">
+                    <div className="lg:sticky lg:top-4 space-y-4">
+                        {/* Geri Butonu */}
+                        <button
+                            onClick={onBack}
+                            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+                        >
+                            <ChevronRight className="w-4 h-4 rotate-180" />
+                            <span className="text-sm font-medium">Geri</span>
+                        </button>
+
+                        {/* Alici Adi */}
+                        <div>
+                            <p className="font-bold text-lg text-slate-900">{sellerOrderDetail.buyer.name}</p>
+                        </div>
+
+                        {/* Durum */}
+                        <div className="flex items-center gap-2">
+                            <Truck className="w-5 h-5 text-orange-500" />
+                            <span className={cn(
+                                "font-semibold",
+                                sellerOrderDetail.status === 'shipped' && "text-orange-600",
+                                sellerOrderDetail.status === 'delivered' && "text-green-600",
+                                sellerOrderDetail.status === 'cancelled' && "text-red-600"
+                            )}>
+                                {getStatusLabel(sellerOrderDetail.status)}
+                            </span>
+                        </div>
+
+                        {/* Referans Numarasi */}
+                        <div>
+                            <p className="text-xs text-slate-500">Referans Numarasi</p>
+                            <div className="flex items-center gap-2">
+                                <span className="font-mono font-medium text-slate-900">{sellerOrderDetail.order_number}</span>
+                                <CopyButton text={sellerOrderDetail.order_number} />
+                            </div>
+                        </div>
+
+                        {/* Siparis Tarihi */}
+                        <div>
+                            <p className="text-xs text-slate-500">Siparis Tarihi</p>
+                            <p className="font-medium text-slate-900">{formatDate(sellerOrderDetail.created_at)}</p>
+                        </div>
+
+                        {/* Otomatik Tamamlanma Notu */}
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                            <p className="text-sm text-purple-800">
+                                Siparis {autoCompleteDate.toLocaleDateString('tr-TR')} tarihinde otomatik olarak tamamlanacaktir.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sag Ana Icerik */}
+                <div className="flex-1 min-w-0 space-y-6">
+                    {/* Urunler */}
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4">Urunler</h2>
+                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                            {/* Urun Listesi */}
+                            <div className="divide-y divide-slate-100">
+                                {sellerOrderDetail.items?.map((item) => (
+                                    <div key={item.id} className="flex items-center gap-4 p-4">
+                                        {/* Miktar */}
+                                        <div className="flex items-center gap-2 text-slate-600 shrink-0">
+                                            <span className="text-lg font-semibold">{item.quantity}</span>
+                                            <span className="text-slate-400">x</span>
+                                        </div>
+
+                                        {/* Urun Gorseli */}
+                                        <div className="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center shrink-0 border border-slate-200">
+                                            <Package className="w-8 h-8 text-slate-300" />
+                                        </div>
+
+                                        {/* Urun Bilgileri */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-slate-900 line-clamp-2">{item.product_name}</p>
+                                            <p className="text-sm text-slate-500">Miat: Miatsiz Urun</p>
+                                            <p className="text-sm text-slate-500">Fiyat: {formatPrice(item.unit_price)} TL</p>
+                                        </div>
+
+                                        {/* Toplam */}
+                                        <div className="text-right shrink-0">
+                                            <p className="font-bold text-slate-900">{formatPrice(item.total_price)}<span className="text-sm font-normal ml-1">TL</span></p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Toplam */}
+                            <div className="border-t border-slate-200 p-4 bg-slate-50">
+                                <div className="flex items-center justify-between mb-2">
+                                    <button className="text-purple-600 text-sm font-medium hover:underline">
+                                        Urun Listesini Yazdir
+                                    </button>
+                                    <div className="text-right">
+                                        <p className="text-sm text-slate-500">Urunler</p>
+                                        <p className="font-medium">{formatPrice(sellerOrderDetail.financials.subtotal.value)} TL</p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <div className="text-right">
+                                        <p className="text-sm text-slate-500">Siparis Toplami</p>
+                                        <p className="text-xl font-bold text-slate-900">{formatPrice(sellerOrderDetail.financials.subtotal.value)} TL</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Fatura ve Kargo Bilgileri */}
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {/* Fatura Bilgileri */}
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900 mb-4">Fatura Bilgileri</h2>
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-slate-500">Eczaci Adi</p>
+                                        <p className="font-medium text-slate-900">{sellerOrderDetail.buyer.name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-500">Eczane Adresi</p>
+                                        <p className="text-sm text-slate-700">{sellerOrderDetail.buyer.address || '-'}</p>
+                                        <p className="text-sm text-slate-700">{sellerOrderDetail.buyer.district}, {sellerOrderDetail.buyer.city}</p>
+                                    </div>
+                                </div>
+
+                                {sellerOrderDetail.buyer.phone && (
+                                    <div>
+                                        <p className="text-xs text-slate-500">Telefon</p>
+                                        <p className="font-medium text-slate-900">{sellerOrderDetail.buyer.phone}</p>
+                                    </div>
+                                )}
+
+                                {/* E-fatura uyarisi */}
+                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                    <p className="text-sm text-orange-700">
+                                        Lutfen e-fatura ciktinizi kargo paketi icine koymay unutmayin.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Kargo Bilgileri */}
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900 mb-4">Kargo Bilgileri</h2>
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+                                {/* Kargo Sirketi */}
+                                {sellerOrderDetail.shipping_provider && (
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Truck className="w-8 h-8 text-slate-400" />
+                                            <span className="font-medium uppercase text-slate-700">{sellerOrderDetail.shipping_provider}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Kargo Takip Kodu */}
+                                {sellerOrderDetail.tracking_number && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs text-slate-500">Kargo Takip Kodu</p>
+                                            <p className="font-mono font-medium text-slate-900">{sellerOrderDetail.tracking_number}</p>
+                                        </div>
+                                        {sellerOrderDetail.shipped_at && (
+                                            <div>
+                                                <p className="text-xs text-slate-500">Kargoya Verildi</p>
+                                                <p className="font-medium text-slate-900">
+                                                    {new Date(sellerOrderDetail.shipped_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Kargo Takip Butonu */}
+                                <Button variant="outline" className="w-full bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100">
+                                    <Truck className="w-4 h-4 mr-2" />
+                                    Kargo Takip Bilgisi
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Hakedis Ozeti */}
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <h3 className="font-bold text-emerald-800 mb-4 flex items-center gap-2">
+                            <Wallet className="w-5 h-5" />
+                            Hakedis Ozeti
+                        </h3>
+                        <div className="space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-slate-600">{sellerOrderDetail.financials.subtotal.label}</span>
+                                <span className="font-medium">{sellerOrderDetail.financials.subtotal.formatted}</span>
+                            </div>
+                            {sellerOrderDetail.financials.deductions
+                                .filter(d => d.visible !== false && d.value > 0)
+                                .map((d, i) => (
+                                    <div key={i} className="flex justify-between text-sm">
+                                        <span className="text-slate-500">{d.label} {d.rate && `(%${d.rate})`}</span>
+                                        <span className="text-red-600">-{d.formatted}</span>
+                                    </div>
+                                ))
+                            }
+                            <div className="border-t border-emerald-200 pt-2 mt-2">
+                                <div className="flex justify-between text-lg font-bold">
+                                    <span className="text-emerald-700">{sellerOrderDetail.financials.net_amount.label}</span>
+                                    <span className="text-emerald-600">{sellerOrderDetail.financials.net_amount.formatted}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Buyer order detail view
+    if (!isSeller && order) {
+        return (
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Sol Sidebar - Siparis Ozeti */}
+                <div className="lg:w-64 shrink-0">
+                    <div className="lg:sticky lg:top-4 space-y-4">
+                        {/* Geri Butonu */}
+                        <button
+                            onClick={onBack}
+                            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+                        >
+                            <ChevronRight className="w-4 h-4 rotate-180" />
+                            <span className="text-sm font-medium">Geri</span>
+                        </button>
+
+                        {/* Satici Adi */}
+                        {order.seller && (
+                            <div>
+                                <p className="font-bold text-lg text-slate-900">{order.seller.pharmacy_name}</p>
+                            </div>
+                        )}
+
+                        {/* Durum */}
+                        <div className="flex items-center gap-2">
+                            <StatusIcon status={order.status} />
+                            <span className={cn(
+                                "font-semibold",
+                                order.status === 'shipped' && "text-orange-600",
+                                order.status === 'delivered' && "text-green-600",
+                                order.status === 'cancelled' && "text-red-600",
+                                order.status === 'pending' && "text-amber-600"
+                            )}>
+                                {getStatusLabel(order.status)}
+                            </span>
+                        </div>
+
+                        {/* Referans Numarasi */}
+                        <div>
+                            <p className="text-xs text-slate-500">Referans Numarasi</p>
+                            <div className="flex items-center gap-2">
+                                <span className="font-mono font-medium text-slate-900">{order.order_number}</span>
+                                <CopyButton text={order.order_number} />
+                            </div>
+                        </div>
+
+                        {/* Siparis Tarihi */}
+                        <div>
+                            <p className="text-xs text-slate-500">Siparis Tarihi</p>
+                            <p className="font-medium text-slate-900">{formatDate(order.created_at)}</p>
+                        </div>
+
+                        {/* Teslimat Adresi */}
+                        {typeof order.shipping_address === 'object' && (
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Teslimat Adresi</p>
+                                <p className="text-sm font-medium text-slate-900">{order.shipping_address.name}</p>
+                                <p className="text-sm text-slate-600">{order.shipping_address.address}</p>
+                                <p className="text-sm text-slate-600">{order.shipping_address.district}, {order.shipping_address.city}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Sag Ana Icerik */}
+                <div className="flex-1 min-w-0 space-y-6">
+                    {/* Urunler */}
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4">Urunler</h2>
+                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                            {/* Urun Listesi */}
+                            <div className="divide-y divide-slate-100">
+                                {order.items?.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-4 p-4">
+                                        {/* Miktar */}
+                                        <div className="flex items-center gap-2 text-slate-600 shrink-0">
+                                            <span className="text-lg font-semibold">{item.quantity}</span>
+                                            <span className="text-slate-400">x</span>
+                                        </div>
+
+                                        {/* Urun Gorseli */}
+                                        <div className="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center shrink-0 border border-slate-200">
+                                            <Package className="w-8 h-8 text-slate-300" />
+                                        </div>
+
+                                        {/* Urun Bilgileri */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-slate-900">Urun #{item.product_id}</p>
+                                            <p className="text-sm text-slate-500">Fiyat: {formatPrice(item.unit_price)} TL</p>
+                                        </div>
+
+                                        {/* Toplam */}
+                                        <div className="text-right shrink-0">
+                                            <p className="font-bold text-slate-900">{formatPrice(item.total_price)}<span className="text-sm font-normal ml-1">TL</span></p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Toplam */}
+                            <div className="border-t border-slate-200 p-4 bg-slate-50">
+                                <div className="flex justify-end">
+                                    <div className="text-right space-y-1">
+                                        <div className="flex justify-between gap-8">
+                                            <span className="text-sm text-slate-500">Urunler</span>
+                                            <span className="font-medium">{formatPrice(order.subtotal)} TL</span>
+                                        </div>
+                                        {order.shipping_cost && order.shipping_cost > 0 && (
+                                            <div className="flex justify-between gap-8">
+                                                <span className="text-sm text-slate-500">Kargo</span>
+                                                <span className="font-medium">{formatPrice(order.shipping_cost)} TL</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between gap-8 pt-2 border-t border-slate-200">
+                                            <span className="font-medium text-slate-700">Siparis Toplami</span>
+                                            <span className="text-xl font-bold text-slate-900">{formatPrice(order.total_amount)} TL</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Kargo Bilgileri */}
+                    {(order.tracking_number || order.shipping_provider) && (
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900 mb-4">Kargo Bilgileri</h2>
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+                                {/* Kargo Sirketi */}
+                                {order.shipping_provider && (
+                                    <div className="flex items-center gap-3">
+                                        <Truck className="w-8 h-8 text-slate-400" />
+                                        <span className="font-medium uppercase text-slate-700">{order.shipping_provider}</span>
+                                    </div>
+                                )}
+
+                                {/* Kargo Takip Kodu */}
+                                {order.tracking_number && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs text-slate-500">Kargo Takip Kodu</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-mono font-medium text-slate-900">{order.tracking_number}</p>
+                                                <CopyButton text={order.tracking_number} />
+                                            </div>
+                                        </div>
+                                        {order.shipped_at && (
+                                            <div>
+                                                <p className="text-xs text-slate-500">Kargoya Verildi</p>
+                                                <p className="font-medium text-slate-900">
+                                                    {new Date(order.shipped_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Kargo Takip Butonu */}
+                                <Button variant="outline" className="w-full bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100">
+                                    <Truck className="w-4 h-4 mr-2" />
+                                    Kargo Takip Bilgisi
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Not found
+    return (
+        <div className="text-center py-12 bg-slate-50 rounded-xl">
+            <Package className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+            <p className="text-slate-500 mb-4">Siparis bulunamadi</p>
+            <Button variant="outline" onClick={onBack}>Geri Don</Button>
         </div>
     );
 }
@@ -699,8 +1405,12 @@ function HesabimContent() {
 
     const [activeTab, setActiveTab] = useState('satis-panelim');
     const [activeSubNav, setActiveSubNav] = useState('kampanya-paneli');
-    const [orders, setOrders] = useState<Order[]>([]);
+    const [buyerOrders, setBuyerOrders] = useState<Order[]>([]);
+    const [sellerOrders, setSellerOrders] = useState<SellerOrder[]>([]);
     const [loadingOrders, setLoadingOrders] = useState(false);
+    const [viewingOrderId, setViewingOrderId] = useState<number | null>(null);
+    const [viewingOrderIsSeller, setViewingOrderIsSeller] = useState(false);
+    const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
 
     // Get tab from URL or default
     useEffect(() => {
@@ -720,21 +1430,37 @@ function HesabimContent() {
     // Load orders when on orders tab
     useEffect(() => {
         if (activeTab === 'siparislerim' && isAuthenticated) {
-            loadOrders();
+            loadOrders(activeSubNav);
         }
-    }, [activeTab, isAuthenticated]);
+    }, [activeTab, activeSubNav, isAuthenticated]);
 
-    const loadOrders = async () => {
+    const loadOrders = async (subNav: string) => {
         setLoadingOrders(true);
         try {
-            const res = await ordersApi.getAll({ per_page: 20 });
-            if (res.data?.orders) {
-                setOrders(res.data.orders);
+            if (subNav === 'satin-aldiklarim') {
+                const res = await ordersApi.getAll({ per_page: 20 });
+                if (res.data?.orders) {
+                    setBuyerOrders(res.data.orders);
+                }
+            } else if (subNav === 'sattiklarim') {
+                const res = await ordersApi.getSellerOrders({ per_page: 20 });
+                if (res.data?.orders) {
+                    setSellerOrders(res.data.orders);
+                }
             }
         } catch (error) {
             console.error('Failed to load orders:', error);
         }
         setLoadingOrders(false);
+    };
+
+    const handleViewOrderDetail = (orderId: number, isSeller: boolean) => {
+        setViewingOrderId(orderId);
+        setViewingOrderIsSeller(isSeller);
+    };
+
+    const handleBackFromOrderDetail = () => {
+        setViewingOrderId(null);
     };
 
     // Redirect if not authenticated
@@ -746,6 +1472,7 @@ function HesabimContent() {
 
     const handleTabChange = (tabId: string) => {
         setActiveTab(tabId);
+        setViewingOrderId(null); // Reset order detail view when changing tabs
         const subNavItems = TAB_SUBNAV[tabId];
         if (subNavItems?.[0]) {
             setActiveSubNav(subNavItems[0].id);
@@ -755,8 +1482,27 @@ function HesabimContent() {
 
     const handleSubNavChange = (subId: string) => {
         setActiveSubNav(subId);
+        setViewingOrderId(null); // Reset order detail view when changing sub-nav
+        setOrderStatusFilter('all'); // Reset status filter when changing sub-nav
         router.push(`/hesabim?tab=${activeTab}&sub=${subId}`, { scroll: false });
     };
+
+    // Get status counts for orders
+    const getOrderStatusCounts = (orders: any[]) => {
+        const counts = { shipped: 0, delivered: 0, cancelled: 0, pending: 0, all: 0 };
+        counts.all = orders.length;
+        orders.forEach(order => {
+            if (order.status === 'shipped') counts.shipped++;
+            else if (order.status === 'delivered') counts.delivered++;
+            else if (order.status === 'cancelled') counts.cancelled++;
+            else counts.pending++;
+        });
+        return counts;
+    };
+
+    // Current orders based on activeSubNav
+    const currentOrders = activeSubNav === 'sattiklarim' ? sellerOrders : buyerOrders;
+    const statusCounts = getOrderStatusCounts(currentOrders);
 
     if (isLoading) {
         return (
@@ -852,6 +1598,69 @@ function HesabimContent() {
                                         </button>
                                     ))}
                                 </nav>
+
+                                {/* Status Filters for Orders */}
+                                {activeTab === 'siparislerim' && (activeSubNav === 'sattiklarim' || activeSubNav === 'satin-aldiklarim') && !viewingOrderId && (
+                                    <div className="mt-6 pt-6 border-t border-slate-200">
+                                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 px-2">
+                                            Durum Filtresi
+                                        </h4>
+                                        <div className="space-y-1">
+                                            <button
+                                                onClick={() => setOrderStatusFilter('all')}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors",
+                                                    orderStatusFilter === 'all' ? "bg-purple-50 text-purple-700" : "hover:bg-slate-50"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Package className="w-4 h-4 text-purple-500" />
+                                                    <span>Tum Siparisler</span>
+                                                </div>
+                                                <span className="font-semibold text-xs">{statusCounts.all}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setOrderStatusFilter('shipped')}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors",
+                                                    orderStatusFilter === 'shipped' ? "bg-orange-50 text-orange-700" : "hover:bg-slate-50"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Truck className="w-4 h-4 text-orange-500" />
+                                                    <span>Kargodakiler</span>
+                                                </div>
+                                                <span className="font-semibold text-xs">{statusCounts.shipped}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setOrderStatusFilter('delivered')}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors",
+                                                    orderStatusFilter === 'delivered' ? "bg-green-50 text-green-700" : "hover:bg-slate-50"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                    <span>Tamamlananlar</span>
+                                                </div>
+                                                <span className="font-semibold text-xs">{statusCounts.delivered}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setOrderStatusFilter('cancelled')}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors",
+                                                    orderStatusFilter === 'cancelled' ? "bg-red-50 text-red-700" : "hover:bg-slate-50"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <XCircle className="w-4 h-4 text-red-500" />
+                                                    <span>Iptal Edilenler</span>
+                                                </div>
+                                                <span className="font-semibold text-xs">{statusCounts.cancelled}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -877,7 +1686,25 @@ function HesabimContent() {
                             {/* Tab Content */}
                             {activeTab === 'satis-panelim' && <SalesPanelContent subNav={activeSubNav} />}
                             {activeTab === 'ilanlarim' && <ListingsContent subNav={activeSubNav} />}
-                            {activeTab === 'siparislerim' && <OrdersContent subNav={activeSubNav} orders={orders} />}
+                            {activeTab === 'siparislerim' && (
+                                viewingOrderId ? (
+                                    <OrderDetailView
+                                        orderId={viewingOrderId}
+                                        isSeller={viewingOrderIsSeller}
+                                        onBack={handleBackFromOrderDetail}
+                                    />
+                                ) : (
+                                    <OrdersContent
+                                        subNav={activeSubNav}
+                                        buyerOrders={buyerOrders}
+                                        sellerOrders={sellerOrders}
+                                        loadingOrders={loadingOrders}
+                                        onViewOrderDetail={handleViewOrderDetail}
+                                        statusFilter={orderStatusFilter}
+                                        onStatusFilterChange={setOrderStatusFilter}
+                                    />
+                                )
+                            )}
                             {activeTab === 'begendiklerim' && <FavoritesContent subNav={activeSubNav} />}
                             {activeTab === 'cuzdanim' && <WalletContent subNav={activeSubNav} />}
                             {activeTab === 'hesap-hareketlerim' && <ActivityContent subNav={activeSubNav} />}

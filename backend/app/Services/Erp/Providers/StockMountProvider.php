@@ -216,4 +216,260 @@ class StockMountProvider implements ErpIntegrationInterface
             'vat_rate' => (int) ($erpProduct['TaxRate'] ?? 0),
         ];
     }
+
+    /**
+     * Ensure we have a valid store ID
+     */
+    protected function ensureStoreId(): array
+    {
+        if ($this->storeId) {
+            return ['success' => true];
+        }
+
+        try {
+            $response = Http::timeout($this->timeout)
+                ->post($this->baseUrl . '/api/Store/GetStores', [
+                    'ApiCode' => $this->apiCode
+                ]);
+
+            $data = $response->json();
+
+            if ($response->successful() && ($data['Result'] ?? false)) {
+                $stores = $data['Response'] ?? [];
+                if (!empty($stores)) {
+                    $this->storeId = $stores[0]['StoreId'] ?? null;
+
+                    if ($this->storeId) {
+                        $extras = $this->integration->extra_params ?? [];
+                        $extras['store_id'] = $this->storeId;
+                        $this->integration->update(['extra_params' => $extras]);
+
+                        return ['success' => true];
+                    }
+                }
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Magaza bilgisi alinamadi.'
+            ];
+        } catch (\Exception $e) {
+            Log::error('StockMount GetStores Error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Magaza hatasi: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Get authenticated HTTP client
+     */
+    protected function getHttpClient()
+    {
+        return Http::timeout($this->timeout)
+            ->withHeaders([
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ]);
+    }
+
+    /**
+     * Create order in StockMount
+     */
+    public function createOrder(array $orderData): array
+    {
+        try {
+            if (!$this->ensureAuthenticated()) {
+                return [
+                    'success' => false,
+                    'message' => 'Kimlik dogrulama basarisiz.',
+                    'data' => null
+                ];
+            }
+
+            $storeResult = $this->ensureStoreId();
+            if (!$storeResult['success']) {
+                return $storeResult;
+            }
+
+            $criteria = [
+                'IntegrationOrderCode' => $orderData['order_code'] ?? null,
+                'Nickname' => $orderData['nickname'] ?? ($orderData['name'] ?? '') . ' ' . ($orderData['surname'] ?? ''),
+                'Fullname' => $orderData['fullname'] ?? ($orderData['name'] ?? '') . ' ' . ($orderData['surname'] ?? ''),
+                'Name' => $orderData['name'] ?? '',
+                'Surname' => $orderData['surname'] ?? '',
+                'CompanyTitle' => $orderData['company_title'] ?? 'Bireysel',
+                'OrderDate' => $orderData['order_date'] ?? now()->toIso8601String(),
+                'ListingStatus' => $orderData['order_status'] ?? 'New',
+                'OrderStatus' => $orderData['order_status'] ?? 'New',
+                'PersonalIdentification' => $orderData['personal_id'] ?? '',
+                'TaxNumber' => $orderData['tax_number'] ?? '',
+                'TaxAuthority' => $orderData['tax_authority'] ?? '',
+                'Telephone' => $orderData['telephone'] ?? '',
+                'Address' => $orderData['address'] ?? '',
+                'District' => $orderData['district'] ?? '',
+                'City' => $orderData['city'] ?? '',
+                'ZipCode' => $orderData['zip_code'] ?? '34000',
+                'Notes' => $orderData['notes'] ?? '',
+                'OrderDetails' => [],
+            ];
+
+            // Add order details (products)
+            if (isset($orderData['items']) && is_array($orderData['items'])) {
+                foreach ($orderData['items'] as $item) {
+                    $prodCode = (string)($item['product_code'] ?? $item['sku'] ?? '');
+
+                    $criteria['OrderDetails'][] = [
+                        'IntegrationProductCode' => $prodCode,
+                        'ProductName' => $item['product_name'] ?? $item['name'] ?? '',
+                        'Quantity' => $item['quantity'] ?? 1,
+                        'Price' => $item['price'] ?? 0,
+                        'Telephone' => $item['telephone'] ?? $orderData['telephone'] ?? '',
+                        'Address' => $item['address'] ?? $orderData['address'] ?? '',
+                        'District' => $item['district'] ?? $orderData['district'] ?? '',
+                        'City' => $item['city'] ?? $orderData['city'] ?? '',
+                        'ZipCode' => $item['zip_code'] ?? '34000',
+                        'DeliveryTitle' => $item['delivery_title'] ?? ($orderData['name'] ?? '') . ' ' . ($orderData['surname'] ?? ''),
+                        'TaxRate' => $item['tax_rate'] ?? 20,
+                        'Barcode' => $item['barcode'] ?? '',
+                        'ProductCode' => $prodCode,
+                        'CargoPayment' => 'Buyer',
+                    ];
+                }
+            }
+
+            $payload = [
+                'ApiCode' => $this->apiCode,
+                'StoreId' => $this->storeId,
+                'Order' => $criteria
+            ];
+
+            Log::info('StockMount SetOrder Request', [
+                'order_code' => $criteria['IntegrationOrderCode'],
+                'items_count' => count($criteria['OrderDetails']),
+            ]);
+
+            $response = $this->getHttpClient()
+                ->post($this->baseUrl . '/api/Integration/SetOrder', $payload);
+
+            $data = $response->json();
+
+            Log::info('StockMount SetOrder Response', [
+                'status' => $response->status(),
+                'result' => $data['Result'] ?? null,
+            ]);
+
+            // Check for session expired error
+            if (($data['ErrorCode'] ?? '') === '00006') {
+                $extras = $this->integration->extra_params ?? [];
+                unset($extras['api_code']);
+                $this->integration->update(['extra_params' => $extras]);
+                $this->apiCode = null;
+
+                return $this->createOrder($orderData);
+            }
+
+            if ($response->successful() && ($data['Result'] ?? false)) {
+                return [
+                    'success' => true,
+                    'message' => 'Siparis basariyla olusturuldu.',
+                    'data' => $data['Response'],
+                    'order_id' => $data['Response']['OrderId'] ?? null,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => $data['ErrorMessage'] ?? $data['Message'] ?? 'Siparis olusturulamadi.',
+                'error_code' => $data['ErrorCode'] ?? null,
+                'data' => $data
+            ];
+        } catch (\Exception $e) {
+            Log::error('StockMount SetOrder Error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Siparis olusturma hatasi: ' . $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+
+    /**
+     * Sync order from system to StockMount
+     */
+    public function syncOrder($order): array
+    {
+        $customer = $order->customer ?? null;
+        $user = $customer->user ?? null;
+        $address = $order->invoiceAddress ?? $order->deliveryAddress ?? $order->address ?? null;
+
+        $addressText = $address->address ?? $address->address_line_1 ?? '';
+        if (empty($addressText) && $address) {
+            $parts = [];
+            if (!empty($address->street)) $parts[] = $address->street;
+            if (!empty($address->building_no)) $parts[] = 'No:' . $address->building_no;
+            if (!empty($address->neighborhood)) $parts[] = $address->neighborhood;
+            $addressText = implode(' ', $parts);
+        }
+        if (empty($addressText)) {
+            $addressText = 'Adres Belirtilmemis';
+        }
+
+        $city = $address->city ?? $address->province ?? '';
+        $district = $address->district ?? $address->area ?? '';
+
+        if (empty($city) && !empty($district)) {
+            $city = $district;
+            $district = 'Merkez';
+        }
+        if (empty($city)) {
+            $city = 'Istanbul';
+        }
+
+        $fullName = $user->name ?? 'Musteri';
+        $nameParts = explode(' ', trim($fullName));
+        $firstName = $nameParts[0] ?? '';
+        $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : $firstName;
+
+        $orderData = [
+            'order_code' => $order->prefix . $order->order_code,
+            'nickname' => $fullName,
+            'name' => $firstName,
+            'surname' => $lastName,
+            'fullname' => $fullName,
+            'company_title' => $address->company_name ?? $fullName,
+            'order_status' => 'New',
+            'order_date' => $order->created_at->toIso8601String(),
+            'telephone' => $address->phone ?? $address->mobile ?? $user->phone ?? '5550000000',
+            'address' => $addressText . ' ' . $district . ' ' . $city,
+            'district' => $district,
+            'city' => $city,
+            'tax_number' => $customer->tax_number ?? '',
+            'tax_authority' => $customer->tax_office ?? '',
+            'notes' => $order->order_note ?? '',
+            'items' => [],
+        ];
+
+        foreach ($order->products as $product) {
+            $orderData['items'][] = [
+                'product_code' => $product->sku ?? $product->id,
+                'product_name' => $product->name,
+                'quantity' => $product->pivot->quantity,
+                'price' => $product->pivot->price,
+                'tax_rate' => $product->vat_rate ?? $product->tax ?? 20,
+                'barcode' => $product->barcode ?? '',
+            ];
+        }
+
+        return $this->createOrder($orderData);
+    }
+
+    /**
+     * Create invoice (delegates to createOrder for StockMount)
+     */
+    public function createInvoice(array $invoiceData): array
+    {
+        return $this->createOrder($invoiceData);
+    }
 }

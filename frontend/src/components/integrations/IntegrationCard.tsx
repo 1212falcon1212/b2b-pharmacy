@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { UserIntegration, integrationsApi } from '@/lib/api';
-import { Loader2, RefreshCw, Trash2, CheckCircle2, AlertCircle, ChevronDown, Save } from 'lucide-react';
+import { UserIntegration, IntegrationCredentials, integrationsApi } from '@/lib/api';
+import { Loader2, RefreshCw, Trash2, CheckCircle2, AlertCircle, ChevronDown, Save, Eye, EyeOff, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -85,12 +85,16 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
     const [saving, setSaving] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [testing, setTesting] = useState(false);
     const [expanded, setExpanded] = useState(false);
+    const [editMode, setEditMode] = useState(false);
     const [formData, setFormData] = useState<Record<string, string | boolean>>({});
 
     const isConnected = integration?.is_configured;
     const isActive = integration?.status === 'active';
     const hasError = integration?.status === 'error';
+    const isPending = integration?.status === 'pending';
+    const credentials = integration?.credentials;
 
     const config = ERP_CONFIG[id] || {
         fields: [
@@ -162,8 +166,39 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
         }
     };
 
+    const handleTestConnection = async () => {
+        setTesting(true);
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/integrations/${id}/test`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Accept': 'application/json',
+                },
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                toast.success('Baglanti basarili!');
+                onUpdate();
+            } else {
+                toast.error(data.message || 'Baglanti basarisiz');
+            }
+        } catch (error: any) {
+            toast.error('Baglanti testi hatasi: ' + error.message);
+        } finally {
+            setTesting(false);
+        }
+    };
+
     const updateField = (key: string, value: string | boolean) => {
         setFormData(prev => ({ ...prev, [key]: value }));
+    };
+
+    // Get display value for a credential field
+    const getCredentialDisplay = (key: string): string | null => {
+        if (!credentials) return null;
+        const value = credentials[key as keyof IntegrationCredentials];
+        if (typeof value === 'boolean') return value ? 'Evet' : 'Hayir';
+        return value as string | null;
     };
 
     return (
@@ -209,9 +244,10 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
             {/* Expanded Content */}
             {expanded && (
                 <div className="border-t border-slate-200 p-4 bg-slate-50">
-                    {isConnected ? (
-                        /* Connected State - Show status and actions */
+                    {isConnected && !editMode ? (
+                        /* Connected State - Show status, credentials and actions */
                         <div className="space-y-4">
+                            {/* Status Row */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div className="bg-white rounded-lg p-3 border border-slate-200">
                                     <span className="text-slate-500 block mb-1">Durum</span>
@@ -219,9 +255,10 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
                                         "font-medium",
                                         isActive && "text-emerald-600",
                                         hasError && "text-red-600",
-                                        !isActive && !hasError && "text-amber-600"
+                                        isPending && "text-amber-600",
+                                        !isActive && !hasError && !isPending && "text-slate-600"
                                     )}>
-                                        {isActive ? 'Aktif' : hasError ? 'Hata' : 'Beklemede'}
+                                        {isActive ? 'Aktif' : hasError ? 'Hata' : isPending ? 'Beklemede' : 'Pasif'}
                                     </span>
                                 </div>
                                 <div className="bg-white rounded-lg p-3 border border-slate-200">
@@ -235,6 +272,33 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
                                 </div>
                             </div>
 
+                            {/* Saved Credentials */}
+                            {credentials && (
+                                <div className="bg-white rounded-lg p-4 border border-slate-200">
+                                    <h4 className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                        <Settings2 className="w-4 h-4" />
+                                        Kayitli Bilgiler
+                                    </h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                        {config.fields.map((field) => {
+                                            const value = getCredentialDisplay(field.key);
+                                            if (!value) return null;
+                                            return (
+                                                <div key={field.key} className={field.type === 'switch' ? 'sm:col-span-2' : ''}>
+                                                    <span className="text-slate-500 block text-xs mb-0.5">{field.label}</span>
+                                                    <span className="font-mono text-slate-900">
+                                                        {field.type === 'switch'
+                                                            ? (credentials?.test_mode ? 'Acik' : 'Kapali')
+                                                            : value
+                                                        }
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {integration?.error_message && (
                                 <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm flex gap-2 items-start border border-red-200">
                                     <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -243,9 +307,17 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
                             )}
 
                             <div className="flex flex-wrap gap-2 pt-2">
+                                <Button variant="outline" size="sm" onClick={handleTestConnection} disabled={testing}>
+                                    {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                                    Baglanti Test Et
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
                                     {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                                     Senkronize Et
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                                    <Settings2 className="mr-2 h-4 w-4" />
+                                    Duzenle
                                 </Button>
                                 <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
                                     {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -255,8 +327,13 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
                             </div>
                         </div>
                     ) : (
-                        /* Not Connected State - Show inline form */
+                        /* Not Connected State OR Edit Mode - Show inline form */
                         <div className="space-y-4">
+                            {editMode && (
+                                <div className="bg-amber-50 text-amber-700 p-3 rounded-lg text-sm border border-amber-200">
+                                    Bilgileri guncellemek icin yeni degerleri girin. Bos birakilan alanlar degismez.
+                                </div>
+                            )}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {config.fields.map((field) => (
                                     <div key={field.key} className={field.type === 'switch' ? 'sm:col-span-2' : ''}>
@@ -274,14 +351,14 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
                                         ) : (
                                             <div className="space-y-1.5">
                                                 <Label htmlFor={`${id}-${field.key}`} className="text-sm font-medium text-slate-700">
-                                                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                                                    {field.label} {field.required && !editMode && <span className="text-red-500">*</span>}
                                                 </Label>
                                                 <Input
                                                     id={`${id}-${field.key}`}
                                                     type={field.type || 'text'}
                                                     value={formData[field.key] as string || ''}
                                                     onChange={(e) => updateField(field.key, e.target.value)}
-                                                    placeholder={field.placeholder || field.label}
+                                                    placeholder={editMode ? `Mevcut: ${getCredentialDisplay(field.key) || '-'}` : (field.placeholder || field.label)}
                                                     className="bg-white"
                                                 />
                                             </div>
@@ -290,9 +367,28 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
                                 ))}
                             </div>
 
-                            <div className="flex justify-end pt-2">
+                            <div className="flex justify-end gap-2 pt-2">
+                                {editMode && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            setEditMode(false);
+                                            // Reset form
+                                            const clearedData: Record<string, string | boolean> = {};
+                                            config.fields.forEach(field => {
+                                                clearedData[field.key] = field.type === 'switch' ? false : '';
+                                            });
+                                            setFormData(clearedData);
+                                        }}
+                                    >
+                                        Iptal
+                                    </Button>
+                                )}
                                 <Button
-                                    onClick={handleSave}
+                                    onClick={async () => {
+                                        await handleSave();
+                                        setEditMode(false);
+                                    }}
                                     disabled={saving}
                                     className="bg-emerald-600 hover:bg-emerald-700"
                                 >
@@ -301,7 +397,7 @@ export function IntegrationCard({ id, name, description, logo, integration, onUp
                                     ) : (
                                         <Save className="mr-2 h-4 w-4" />
                                     )}
-                                    Kaydet ve Baglan
+                                    {editMode ? 'Guncelle' : 'Kaydet ve Baglan'}
                                 </Button>
                             </div>
                         </div>

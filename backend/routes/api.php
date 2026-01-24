@@ -150,7 +150,16 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/', [IntegrationController::class, 'index']);
             Route::post('/', [IntegrationController::class, 'store']);
             Route::post('/{integration}/sync', [IntegrationController::class, 'sync']);
+            Route::get('/{integration}/test', [IntegrationController::class, 'testConnection']);
             Route::delete('/{integration}', [IntegrationController::class, 'destroy']);
+
+            // Order/Invoice ERP sync routes
+            Route::post('/orders/{order}/sync', [IntegrationController::class, 'syncOrder']);
+            Route::post('/orders/{order}/invoice', [IntegrationController::class, 'createInvoice']);
+
+            // KolaySoft specific test endpoints
+            Route::get('/kolaysoft/prefix-list', [IntegrationController::class, 'kolaysoftPrefixList']);
+            Route::get('/kolaysoft/credit-count', [IntegrationController::class, 'kolaysoftCreditCount']);
         });
 
         // Notification Settings

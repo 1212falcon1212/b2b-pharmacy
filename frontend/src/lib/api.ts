@@ -810,13 +810,24 @@ export const shippingApi = {
 };
 
 // Integrations Types
+export interface IntegrationCredentials {
+  api_key: string | null;
+  api_secret: string | null;
+  app_id: string | null;
+  username: string | null;
+  password: string | null;
+  test_mode: boolean;
+  wsdl_url: string | null;
+}
+
 export interface UserIntegration {
   id: number;
   erp_type: string;
-  status: 'active' | 'inactive' | 'error';
+  status: 'active' | 'inactive' | 'error' | 'pending';
   last_sync_at: string | null;
   error_message: string | null;
   is_configured: boolean;
+  credentials?: IntegrationCredentials;
 }
 
 export const integrationsApi = {

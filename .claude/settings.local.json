@@ -31,7 +31,8 @@
       "Bash(ssh:*)",
       "Bash(git push)",
       "Bash(npx eslint:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(timeout 10 npm run dev:*)"
     ]
   }
 }
